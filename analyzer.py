@@ -1,7 +1,11 @@
 import re
 import json
+from joblib import load
 from knowledge import get_knowledge
 from report import generate_report
+
+ML_MODEL_PATH = "models/threat_classifier.joblib"
+ml_model = load(ML_MODEL_PATH)
 
 
 def extract_username(log):
@@ -47,6 +51,10 @@ def extract_attempts(log):
 
 
 def analyze_log(log):
+    ml_prediction = ml_model.predict([log])[0]
+    ml_probabilities = ml_model.predict_proba([log])[0]
+    ml_confidence = max(ml_probabilities)
+
     log_lower = log.lower()
 
     username = extract_username(log)
@@ -166,7 +174,9 @@ def analyze_log(log):
         "attempts": attempts,
         "findings": findings,
         "recommendations": recommendations,
-        "knowledge": knowledge
+        "knowledge": knowledge,
+        "ml_prediction": ml_prediction,
+        "ml_confidence": round(float(ml_confidence), 4)
     }
 
 

@@ -209,7 +209,23 @@ HTML = """
 
         <div class="section">
 
-            <h2>🔎 Findings</h2>
+            <div class="section">
+
+        <h2>🤖 Machine Learning Analysis</h2>
+
+        <p>
+            <b>ML Prediction:</b>
+            {{ result.ml_prediction }}
+        </p>
+
+        <p>
+            <b>ML Confidence:</b>
+            {{ (result.ml_confidence * 100) | round(2) }}%
+        </p>
+
+    </div>
+
+    <h2>🔎 Findings</h2>
 
             <ul>
             {% for finding in result.findings %}

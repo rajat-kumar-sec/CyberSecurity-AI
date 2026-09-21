@@ -1,4 +1,5 @@
 import re
+import json
 from knowledge import get_knowledge
 from report import generate_report
 
@@ -58,7 +59,6 @@ def analyze_log(log):
     threat_type = "Unknown"
     risk = "LOW"
 
-    # Brute Force
     if (
         "brute force" in log_lower
         or "multiple failed login" in log_lower
@@ -75,7 +75,6 @@ def analyze_log(log):
             "Check for successful login after the attack."
         ])
 
-    # Malware
     elif (
         "malware" in log_lower
         or "ransomware" in log_lower
@@ -92,7 +91,6 @@ def analyze_log(log):
             "Investigate suspicious processes and files."
         ])
 
-    # Network Scanning
     elif (
         "nmap" in log_lower
         or "port scan" in log_lower
@@ -109,7 +107,6 @@ def analyze_log(log):
             "Restrict unnecessary exposed services."
         ])
 
-    # SQL Injection
     elif (
         "sql injection" in log_lower
         or "union select" in log_lower
@@ -125,7 +122,6 @@ def analyze_log(log):
             "Validate and sanitize user input."
         ])
 
-    # Phishing
     elif (
         "phishing" in log_lower
         or "suspicious link" in log_lower
@@ -141,7 +137,6 @@ def analyze_log(log):
             "Report the suspicious message."
         ])
 
-    # Authentication attack
     elif (
         "failed login" in log_lower
         or "authentication failure" in log_lower
@@ -155,12 +150,8 @@ def analyze_log(log):
             "Review authentication logs."
         )
 
-    # Unknown
     else:
-        findings.append(
-            "No known suspicious pattern detected."
-        )
-
+        findings.append("No known suspicious pattern detected.")
         recommendations.append(
             "Continue monitoring the system."
         )
@@ -168,8 +159,8 @@ def analyze_log(log):
     knowledge = get_knowledge(threat_type)
 
     return {
-        "risk": risk,
         "threat_type": threat_type,
+        "risk": risk,
         "username": username,
         "source_ip": source_ip,
         "attempts": attempts,
@@ -179,9 +170,28 @@ def analyze_log(log):
     }
 
 
+def save_json_report(result):
+    json_data = {
+        "threat_type": result["threat_type"],
+        "risk": result["risk"],
+        "evidence": {
+            "username": result["username"],
+            "source_ip": result["source_ip"],
+            "attempts": result["attempts"]
+        },
+        "findings": result["findings"],
+        "recommendations": result["recommendations"]
+    }
+
+    with open("logs/latest_report.json", "w", encoding="utf-8") as file:
+        json.dump(json_data, file, indent=4)
+
+    return json_data
+
+
 if __name__ == "__main__":
-    print("=== CYBERSECURITY AI v0.8 ===")
-    print("Multi-Threat Detection Engine")
+    print("=== CYBERSECURITY AI v0.9 ===")
+    print("Structured Security Analysis")
     print()
     print("Paste your security log below.")
     print("Type END on a new line when finished.")
@@ -201,4 +211,10 @@ if __name__ == "__main__":
 
     result = analyze_log(user_log)
 
+    save_json_report(result)
+
     generate_report(result)
+
+    print()
+    print("JSON report saved to:")
+    print("logs/latest_report.json")

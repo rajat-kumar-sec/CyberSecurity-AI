@@ -1,5 +1,6 @@
 import re
 from knowledge import get_knowledge
+from report import generate_report
 
 
 def extract_username(log):
@@ -75,7 +76,6 @@ def analyze_log(log):
         findings.append("Possible brute-force attack detected.")
         threat_type = "Brute Force"
         risk = "HIGH"
-
         recommendations.append("Enable MFA.")
         recommendations.append("Apply login rate limiting.")
         recommendations.append(
@@ -86,7 +86,6 @@ def analyze_log(log):
         findings.append("Possible malware activity detected.")
         threat_type = "Malware"
         risk = "HIGH"
-
         recommendations.append("Isolate the affected system.")
         recommendations.append("Run an endpoint security scan.")
 
@@ -108,7 +107,6 @@ def analyze_log(log):
         findings.append("Possible SQL injection activity detected.")
         threat_type = "SQL Injection"
         risk = "HIGH"
-
         recommendations.append("Review web application logs.")
         recommendations.append(
             "Use parameterized database queries."
@@ -118,7 +116,6 @@ def analyze_log(log):
         findings.append("Possible phishing activity detected.")
         threat_type = "Phishing"
         risk = "HIGH"
-
         recommendations.append("Verify the sender and URL.")
         recommendations.append("Do not open suspicious attachments.")
         recommendations.append("Report the suspicious message.")
@@ -142,7 +139,7 @@ def analyze_log(log):
 
 
 if __name__ == "__main__":
-    print("=== CYBERSECURITY AI v0.6 ===")
+    print("=== CYBERSECURITY AI v0.7 ===")
     print("Paste your security log below.")
     print("Type END on a new line when finished.")
     print()
@@ -161,29 +158,4 @@ if __name__ == "__main__":
 
     result = analyze_log(user_log)
 
-    print()
-    print("=== SECURITY ANALYSIS ===")
-    print("Threat Type:", result["threat_type"])
-    print("Risk Level:", result["risk"])
-    print()
-
-    print("Evidence:")
-    print("Username:", result["username"])
-    print("Source IP:", result["source_ip"])
-    print("Attempts:", result["attempts"])
-    print()
-
-    print("Findings:")
-
-    for finding in result["findings"]:
-        print("-", finding)
-
-    print()
-    print("Recommended Actions:")
-
-    for recommendation in result["recommendations"]:
-        print("-", recommendation)
-
-    print()
-    print("=== KNOWLEDGE BASE CONTEXT ===")
-    print(result["knowledge"])
+    generate_report(result)

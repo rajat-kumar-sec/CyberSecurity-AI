@@ -1,4 +1,5 @@
 import re
+from knowledge import get_knowledge
 
 
 def extract_username(log):
@@ -113,9 +114,20 @@ def analyze_log(log):
             "Use parameterized database queries."
         )
 
+    if "phishing" in log_lower:
+        findings.append("Possible phishing activity detected.")
+        threat_type = "Phishing"
+        risk = "HIGH"
+
+        recommendations.append("Verify the sender and URL.")
+        recommendations.append("Do not open suspicious attachments.")
+        recommendations.append("Report the suspicious message.")
+
     if not findings:
         findings.append("No known suspicious pattern detected.")
         recommendations.append("Continue monitoring the system.")
+
+    knowledge = get_knowledge(threat_type)
 
     return {
         "risk": risk,
@@ -124,12 +136,13 @@ def analyze_log(log):
         "source_ip": source_ip,
         "attempts": attempts,
         "findings": findings,
-        "recommendations": recommendations
+        "recommendations": recommendations,
+        "knowledge": knowledge
     }
 
 
 if __name__ == "__main__":
-    print("=== CYBERSECURITY AI v0.4 ===")
+    print("=== CYBERSECURITY AI v0.6 ===")
     print("Paste your security log below.")
     print("Type END on a new line when finished.")
     print()
@@ -170,3 +183,7 @@ if __name__ == "__main__":
 
     for recommendation in result["recommendations"]:
         print("-", recommendation)
+
+    print()
+    print("=== KNOWLEDGE BASE CONTEXT ===")
+    print(result["knowledge"])

@@ -1,0 +1,28 @@
+Threat: Network Scanning
+
+Description:
+Network scanning is the process of probing systems or networks to identify hosts, open ports, services, or other network information.
+
+Common Indicators:
+- Connections to many ports
+- Requests to multiple hosts
+- Repeated connection attempts
+- Unusual traffic patterns
+- Tools such as Nmap appearing in authorized security logs
+
+Risk:
+Scanning can be used for reconnaissance before further attacks, although legitimate administrators and security testers also use scanning tools.
+
+Defensive Measures:
+- Monitor network traffic
+- Review firewall logs
+- Restrict unnecessary exposed services
+- Use network segmentation
+- Investigate unusual scanning sources
+
+Investigation Steps:
+1. Identify the source IP.
+2. Identify targeted hosts and ports.
+3. Determine whether the activity was authorized.
+4. Review firewall and network logs.
+5. Look for subsequent suspicious activity.

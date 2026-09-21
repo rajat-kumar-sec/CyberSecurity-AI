@@ -1,0 +1,30 @@
+Threat: Phishing
+
+Description:
+Phishing is a social engineering technique used to trick users into revealing sensitive information or interacting with malicious content.
+
+Common Indicators:
+- Suspicious sender address
+- Unexpected links or attachments
+- Urgent or threatening language
+- Requests for passwords or sensitive information
+- Mismatched or suspicious URLs
+- Unexpected login pages
+
+Risk:
+Phishing can lead to credential theft, malware infection, account compromise, and data loss.
+
+Defensive Measures:
+- Verify the sender before responding
+- Avoid suspicious links and attachments
+- Use multi-factor authentication
+- Check URLs carefully
+- Report suspicious messages
+- Use email security controls
+
+Investigation Steps:
+1. Identify the sender.
+2. Inspect links and attachments safely.
+3. Check whether credentials were entered.
+4. Determine whether the user interacted with the message.
+5. Review related authentication and endpoint logs.

@@ -1,0 +1,28 @@
+Threat: SQL Injection
+
+Description:
+SQL injection is an attack where malicious input is used to manipulate database queries made by an application.
+
+Common Indicators:
+- Unexpected SQL syntax in requests
+- Database errors in application responses
+- Suspicious query parameters
+- Repeated unusual database requests
+- Patterns such as UNION SELECT
+
+Risk:
+SQL injection can allow unauthorized access to application data and may compromise database integrity.
+
+Defensive Measures:
+- Use parameterized queries
+- Validate and sanitize input
+- Apply least-privilege database permissions
+- Use secure application frameworks
+- Monitor application and database logs
+
+Investigation Steps:
+1. Identify the affected application.
+2. Review suspicious requests.
+3. Check application and database logs.
+4. Determine what data was accessed.
+5. Review database account permissions.

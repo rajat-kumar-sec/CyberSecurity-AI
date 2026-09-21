@@ -1,0 +1,29 @@
+Threat: Brute Force Attack
+
+Description:
+A brute force attack is an attempt to gain unauthorized access by repeatedly trying different passwords or credentials.
+
+Common Indicators:
+- Many failed login attempts
+- Same username targeted repeatedly
+- High number of authentication attempts
+- Login attempts from an unusual source IP
+- Repeated authentication failures in a short period
+
+Risk:
+Brute force attacks can lead to account compromise if valid credentials are discovered.
+
+Defensive Measures:
+- Enable multi-factor authentication (MFA)
+- Apply login rate limiting
+- Use strong and unique passwords
+- Implement account lockout or temporary delays
+- Monitor authentication logs
+- Investigate successful logins following repeated failures
+
+Investigation Steps:
+1. Identify the source IP.
+2. Identify the targeted username.
+3. Count failed authentication attempts.
+4. Check whether a successful login occurred.
+5. Review related authentication events.

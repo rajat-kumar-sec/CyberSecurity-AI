@@ -58,7 +58,91 @@ def analyze_log(log):
     threat_type = "Unknown"
     risk = "LOW"
 
+    # Brute Force
     if (
+        "brute force" in log_lower
+        or "multiple failed login" in log_lower
+        or "failed password" in log_lower
+        or (attempts is not None and attempts >= 5)
+    ):
+        findings.append("Possible brute-force attack detected.")
+        threat_type = "Brute Force"
+        risk = "HIGH"
+
+        recommendations.extend([
+            "Enable MFA.",
+            "Apply login rate limiting.",
+            "Check for successful login after the attack."
+        ])
+
+    # Malware
+    elif (
+        "malware" in log_lower
+        or "ransomware" in log_lower
+        or "trojan" in log_lower
+        or "keylogger" in log_lower
+    ):
+        findings.append("Possible malware activity detected.")
+        threat_type = "Malware"
+        risk = "HIGH"
+
+        recommendations.extend([
+            "Isolate the affected system.",
+            "Run an endpoint security scan.",
+            "Investigate suspicious processes and files."
+        ])
+
+    # Network Scanning
+    elif (
+        "nmap" in log_lower
+        or "port scan" in log_lower
+        or "port scanning" in log_lower
+        or "network scanning" in log_lower
+    ):
+        findings.append("Possible network scanning activity detected.")
+        threat_type = "Network Scanning"
+        risk = "MEDIUM"
+
+        recommendations.extend([
+            "Review firewall and network logs.",
+            "Investigate the source IP.",
+            "Restrict unnecessary exposed services."
+        ])
+
+    # SQL Injection
+    elif (
+        "sql injection" in log_lower
+        or "union select" in log_lower
+        or "' or '1'='1" in log_lower
+    ):
+        findings.append("Possible SQL injection activity detected.")
+        threat_type = "SQL Injection"
+        risk = "HIGH"
+
+        recommendations.extend([
+            "Review web application logs.",
+            "Use parameterized database queries.",
+            "Validate and sanitize user input."
+        ])
+
+    # Phishing
+    elif (
+        "phishing" in log_lower
+        or "suspicious link" in log_lower
+        or "malicious email" in log_lower
+    ):
+        findings.append("Possible phishing activity detected.")
+        threat_type = "Phishing"
+        risk = "HIGH"
+
+        recommendations.extend([
+            "Verify the sender and URL.",
+            "Do not open suspicious attachments.",
+            "Report the suspicious message."
+        ])
+
+    # Authentication attack
+    elif (
         "failed login" in log_lower
         or "authentication failure" in log_lower
         or "failed password" in log_lower
@@ -66,63 +150,20 @@ def analyze_log(log):
         findings.append("Failed authentication attempt detected.")
         threat_type = "Authentication Attack"
         risk = "MEDIUM"
-        recommendations.append("Review authentication logs.")
 
-    if (
-        "brute force" in log_lower
-        or "multiple failed login" in log_lower
-        or (attempts is not None and attempts >= 5)
-    ):
-        findings.append("Possible brute-force attack detected.")
-        threat_type = "Brute Force"
-        risk = "HIGH"
-        recommendations.append("Enable MFA.")
-        recommendations.append("Apply login rate limiting.")
         recommendations.append(
-            "Check for successful login after the attack."
+            "Review authentication logs."
         )
 
-    if "malware" in log_lower or "ransomware" in log_lower:
-        findings.append("Possible malware activity detected.")
-        threat_type = "Malware"
-        risk = "HIGH"
-        recommendations.append("Isolate the affected system.")
-        recommendations.append("Run an endpoint security scan.")
-
-    if (
-        "port scan" in log_lower
-        or "port scanning" in log_lower
-        or "nmap" in log_lower
-    ):
-        findings.append("Possible network scanning activity detected.")
-        threat_type = "Network Scanning"
-
-        if risk != "HIGH":
-            risk = "MEDIUM"
-
-        recommendations.append("Review firewall and network logs.")
-        recommendations.append("Investigate the source IP.")
-
-    if "sql injection" in log_lower or "union select" in log_lower:
-        findings.append("Possible SQL injection activity detected.")
-        threat_type = "SQL Injection"
-        risk = "HIGH"
-        recommendations.append("Review web application logs.")
-        recommendations.append(
-            "Use parameterized database queries."
+    # Unknown
+    else:
+        findings.append(
+            "No known suspicious pattern detected."
         )
 
-    if "phishing" in log_lower:
-        findings.append("Possible phishing activity detected.")
-        threat_type = "Phishing"
-        risk = "HIGH"
-        recommendations.append("Verify the sender and URL.")
-        recommendations.append("Do not open suspicious attachments.")
-        recommendations.append("Report the suspicious message.")
-
-    if not findings:
-        findings.append("No known suspicious pattern detected.")
-        recommendations.append("Continue monitoring the system.")
+        recommendations.append(
+            "Continue monitoring the system."
+        )
 
     knowledge = get_knowledge(threat_type)
 
@@ -139,7 +180,9 @@ def analyze_log(log):
 
 
 if __name__ == "__main__":
-    print("=== CYBERSECURITY AI v0.7 ===")
+    print("=== CYBERSECURITY AI v0.8 ===")
+    print("Multi-Threat Detection Engine")
+    print()
     print("Paste your security log below.")
     print("Type END on a new line when finished.")
     print()

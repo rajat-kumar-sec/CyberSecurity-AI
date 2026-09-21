@@ -3,3 +3,4 @@ __pycache__/
 *.pyc
 analyzer_v*.py
 logs/*.json
+app_v*.py

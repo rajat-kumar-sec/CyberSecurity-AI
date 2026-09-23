@@ -1,41 +1,121 @@
 log,threat_type
-"Failed password for admin from 10.0.0.25","Brute Force"
-"Multiple failed login attempts for root","Brute Force"
-"50 failed authentication attempts detected","Brute Force"
-"Repeated failed password attempts from 192.168.1.20","Brute Force"
-"Account locked after many failed login attempts","Brute Force"
-"Suspicious repeated login failures detected","Brute Force"
-"Ransomware process detected on workstation","Malware"
-"Trojan activity detected on endpoint","Malware"
-"Keylogger process found running","Malware"
-"Malicious executable detected on computer","Malware"
-"Suspicious malware payload detected","Malware"
-"Ransomware encryption activity detected","Malware"
-"Nmap detected scanning activity from 192.168.1.25","Network Scanning"
-"Multiple ports were accessed from remote host","Network Scanning"
-"Port scan detected against server","Network Scanning"
-"Network scanning activity detected","Network Scanning"
-"Host scanned multiple TCP ports","Network Scanning"
-"Suspicious Nmap scan detected","Network Scanning"
-"SQL Injection attempt detected","SQL Injection"
-"UNION SELECT found in web request","SQL Injection"
-"Suspicious SQL query detected in parameter","SQL Injection"
-"Database injection attack detected","SQL Injection"
-"OR 1=1 detected in HTTP request","SQL Injection"
-"SQL injection payload found","SQL Injection"
-"Malicious email detected","Phishing"
-"Suspicious link reported as phishing","Phishing"
-"User received suspicious email containing malicious link","Phishing"
-"Credential phishing attempt detected","Phishing"
-"Fake login page link detected","Phishing"
-"Phishing URL detected in email","Phishing"
-"User logged into the system successfully","Normal"
-"System update completed successfully","Normal"
-"Successful login from known workstation","Normal"
-"Application started normally","Normal"
-"User logged out successfully","Normal"
-"System backup completed successfully","Normal"
-"Normal network connection established","Normal"
-"Password changed successfully by user","Normal"
-"File opened successfully by authorized user","Normal"
-"Routine system maintenance completed","Normal"
+Failed password for admin from 10.0.0.25,Brute Force
+Multiple failed login attempts for root,Brute Force
+50 failed authentication attempts detected,Brute Force
+Repeated failed password attempts from 192.168.1.20,Brute Force
+Account locked after many failed login attempts,Brute Force
+Suspicious repeated login failures detected,Brute Force
+Failed SSH login attempt repeated 20 times,Brute Force
+Authentication failures detected from same IP,Brute Force
+大量 failed login attempts against administrator,Brute Force
+Repeated password guessing detected,Brute Force
+SSH brute force attack detected,Brute Force
+Multiple invalid credentials submitted,Brute Force
+Login attempts exceeded threshold,Brute Force
+Repeated authentication failures from remote host,Brute Force
+Credential guessing activity detected,Brute Force
+Unauthorized repeated login attempts detected,Brute Force
+High volume of failed SSH authentication,Brute Force
+Administrator account targeted by password attacks,Brute Force
+Login failure burst detected from 10.0.0.44,Brute Force
+Password guessing against user account detected,Brute Force
+Suspicious ransomware process detected,Malware
+Trojan activity detected on endpoint,Malware
+Keylogger process found running,Malware
+Malicious executable detected on computer,Malware
+Suspicious malware payload detected,Malware
+Ransomware encryption activity detected,Malware
+Backdoor process detected on workstation,Malware
+Malicious process communicating with unknown server,Malware
+Spyware detected on endpoint,Malware
+Virus signature detected in executable,Malware
+Credential stealing malware detected,Malware
+Remote access trojan detected,Malware
+Malicious DLL loaded by process,Malware
+Endpoint protection detected ransomware,Malware
+Suspicious PowerShell malware activity,Malware
+Malicious script executed on workstation,Malware
+Known trojan hash detected,Malware
+Malware persistence mechanism detected,Malware
+Suspicious executable launched from temp directory,Malware
+Endpoint infected with malicious software,Malware
+Nmap detected scanning activity from 192.168.1.25,Network Scanning
+Multiple ports were accessed from remote host,Network Scanning
+Port scan detected against server,Network Scanning
+Network scanning activity detected,Network Scanning
+Host scanned multiple TCP ports,Network Scanning
+Suspicious Nmap scan detected,Network Scanning
+Masscan detected multiple open ports,Network Scanning
+Sequential port connections detected,Network Scanning
+Remote host scanned ports 20 through 100,Network Scanning
+TCP SYN scan detected,Network Scanning
+UDP port scanning activity detected,Network Scanning
+Network reconnaissance detected,Network Scanning
+Multiple connection attempts across ports,Network Scanning
+External host probing server ports,Network Scanning
+Port sweep detected from remote IP,Network Scanning
+Host discovery scan detected,Network Scanning
+Service enumeration detected,Network Scanning
+Rapid connections to multiple ports detected,Network Scanning
+Network probe detected from suspicious source,Network Scanning
+Server reconnaissance activity detected,Network Scanning
+Login request contained: admin' OR '1'='1,SQL Injection
+Web request parameter id=1 OR 1=1 triggered SQL injection detection,SQL Injection
+"Query contained UNION SELECT username,password FROM users",SQL Injection
+HTTP parameter included ' OR 1=1 --,SQL Injection
+Database request contained a suspicious UNION SELECT statement,SQL Injection
+Login field contained: ' OR 'x'='x,SQL Injection
+URL parameter showed SQL comment sequence: --,SQL Injection
+Application detected boolean-based SQL injection in user input,SQL Injection
+Database query contained suspicious SELECT manipulation from HTTP input,SQL Injection
+Web application blocked a SQL injection payload in the id parameter,SQL Injection
+Boolean SQL injection detected,SQL Injection
+SQL payload targeting login form detected,SQL Injection
+Web application SQL injection attack detected,SQL Injection
+Database parameter contains SQL injection syntax,SQL Injection
+SQL injection attempt blocked by WAF,SQL Injection
+Suspicious database query from web request,SQL Injection
+SQL authentication bypass payload detected,SQL Injection
+Injection pattern detected in URL parameter,SQL Injection
+Malicious UNION query detected,SQL Injection
+SQL attack against database endpoint detected,SQL Injection
+Malicious email detected,Phishing
+Suspicious link reported as phishing,Phishing
+User received suspicious email containing malicious link,Phishing
+Credential phishing attempt detected,Phishing
+Fake login page link detected,Phishing
+Phishing URL detected in email,Phishing
+Suspicious password reset email received,Phishing
+Email requests urgent account verification,Phishing
+Fraudulent login notification detected,Phishing
+Malicious attachment delivered through suspicious email,Phishing
+Email contains suspicious authentication link,Phishing
+User reported credential theft email,Phishing
+Fake Microsoft login page detected,Phishing
+Spear phishing message detected,Phishing
+Suspicious sender domain detected in email,Phishing
+Credential harvesting website reported,Phishing
+Social engineering email detected,Phishing
+Urgent payment request received by email,Phishing
+Suspicious account recovery message detected,Phishing
+Malicious shortened URL received in email,Phishing
+User logged into the system successfully,Normal
+System update completed successfully,Normal
+Successful login from known workstation,Normal
+Application started normally,Normal
+User logged out successfully,Normal
+System backup completed successfully,Normal
+Normal network connection established,Normal
+Password changed successfully by user,Normal
+File opened successfully by authorized user,Normal
+Routine system maintenance completed,Normal
+Successful authentication from trusted device,Normal
+Operating system update installed successfully,Normal
+Normal application activity detected,Normal
+User session ended normally,Normal
+Scheduled backup completed without errors,Normal
+Authorized user accessed application,Normal
+Normal DNS request completed,Normal
+Firewall allowed legitimate connection,Normal
+System health check completed successfully,Normal
+Regular database query completed successfully,Normal

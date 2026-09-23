@@ -10,9 +10,9 @@ ml_model = load(ML_MODEL_PATH)
 
 def extract_username(log):
     patterns = [
-        r"username:\s*([^\s]+)",
-        r"user(?:name)?[=\s]+([^\s]+)",
-        r"for\s+(?:invalid user\s+)?([a-zA-Z0-9_.-]+)"
+        r"username\s*[:=]\s*([^\s,]+)",
+        r"user\s*[:=]\s*([^\s,]+)",
+        r"for\s+(?:invalid\s+user\s+)?([a-zA-Z0-9_.-]+)"
     ]
 
     for pattern in patterns:
@@ -116,10 +116,16 @@ def analyze_log(log):
         ])
 
     elif (
-        "sql injection" in log_lower
-        or "union select" in log_lower
-        or "' or '1'='1" in log_lower
-    ):
+    "sql injection" in log_lower
+    or "union select" in log_lower
+    or "' or '1'='1" in log_lower
+    or "or 1=1" in log_lower
+    or "or '1'='1" in log_lower
+    or "drop table" in log_lower
+    or "insert into" in log_lower
+    or "delete from" in log_lower
+    or ("update " in log_lower and " set " in log_lower)
+):
         findings.append("Possible SQL injection activity detected.")
         threat_type = "SQL Injection"
         risk = "HIGH"

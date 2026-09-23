@@ -4,6 +4,8 @@ from pathlib import Path
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, classification_report
 from joblib import dump
 
 
@@ -23,6 +25,15 @@ with DATA_FILE.open("r", encoding="utf-8", newline="") as file:
         labels.append(row["threat_type"])
 
 
+X_train, X_test, y_train, y_test = train_test_split(
+    texts,
+    labels,
+    test_size=0.25,
+    random_state=42,
+    stratify=labels
+)
+
+
 model = Pipeline([
     ("tfidf", TfidfVectorizer(
         lowercase=True,
@@ -34,13 +45,30 @@ model = Pipeline([
 ])
 
 
-model.fit(texts, labels)
+model.fit(X_train, y_train)
+
+predictions = model.predict(X_test)
+
+accuracy = accuracy_score(y_test, predictions)
+
 
 MODEL_DIR.mkdir(exist_ok=True)
 
 dump(model, MODEL_FILE)
 
-print("ML model trained successfully.")
-print("Training samples:", len(texts))
+
+print("=== ML MODEL TRAINING ===")
+print("Total samples:", len(texts))
+print("Training samples:", len(X_train))
+print("Testing samples:", len(X_test))
 print("Threat classes:", sorted(set(labels)))
+print()
+print("=== UNSEEN TEST RESULTS ===")
+print("Accuracy:", round(accuracy * 100, 2), "%")
+print()
+print(classification_report(
+    y_test,
+    predictions,
+    zero_division=0
+))
 print("Model saved to:", MODEL_FILE)

@@ -1,11 +1,16 @@
 import re
 import json
+from pathlib import Path
 from joblib import load
 from knowledge import get_knowledge
 from report import generate_report
 
-ML_MODEL_PATH = "models/threat_classifier.joblib"
+BASE_DIR = Path(__file__).resolve().parent
+
+ML_MODEL_PATH = BASE_DIR / "models" / "threat_classifier.joblib"
 ml_model = load(ML_MODEL_PATH)
+
+LOGS_DIR = BASE_DIR / "logs"
 
 
 def extract_username(log):
@@ -199,7 +204,9 @@ def save_json_report(result):
         "recommendations": result["recommendations"]
     }
 
-    with open("logs/latest_report.json", "w", encoding="utf-8") as file:
+    LOGS_DIR.mkdir(exist_ok=True)
+
+    with open(LOGS_DIR / "latest_report.json", "w", encoding="utf-8") as file:
         json.dump(json_data, file, indent=4)
 
     return json_data
@@ -233,4 +240,4 @@ if __name__ == "__main__":
 
     print()
     print("JSON report saved to:")
-    print("logs/latest_report.json")
+    print(LOGS_DIR / "latest_report.json")

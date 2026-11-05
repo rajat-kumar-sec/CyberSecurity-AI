@@ -1,7 +1,8 @@
 from pathlib import Path
 
 
-KNOWLEDGE_DIR = Path("data/knowledge")
+BASE_DIR = Path(__file__).resolve().parent
+KNOWLEDGE_DIR = BASE_DIR / "data" / "knowledge"
 
 
 def get_knowledge(threat_type):

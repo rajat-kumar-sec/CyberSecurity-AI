@@ -1,0 +1,150 @@
+{
+  "description": "Retrieval quality evaluation for CyberGuard AI hybrid RAG (Step 3). Each query lists the knowledge-base categories that a competent SOC analyst should consider relevant, plus expected sections where they are unambiguous.",
+  "metrics_notes": "Recall@k = fraction of queries with at least one expected category among the top-k results. MRR uses the rank of the first result whose category is expected (max rank 5).",
+  "queries": [
+    {
+      "id": "q01",
+      "query": "how do I investigate repeated failed logins on my server",
+      "expected_categories": ["Brute Force"],
+      "expected_sections": ["Investigation Steps"]
+    },
+    {
+      "id": "q02",
+      "query": "50 failed login attempts from one IP address, what should I do",
+      "expected_categories": ["Brute Force"],
+      "expected_sections": ["Defensive Measures"]
+    },
+    {
+      "id": "q03",
+      "query": "someone seems to be guessing passwords for user accounts",
+      "expected_categories": ["Brute Force"],
+      "expected_sections": ["Common Indicators"]
+    },
+    {
+      "id": "q04",
+      "query": "how can I harden logins against password guessing attacks",
+      "expected_categories": ["Brute Force"],
+      "expected_sections": ["Defensive Measures"]
+    },
+    {
+      "id": "q05",
+      "query": "what are the warning signs of ransomware on a computer",
+      "expected_categories": ["Malware"],
+      "expected_sections": ["Common Indicators"]
+    },
+    {
+      "id": "q06",
+      "query": "I think a keylogger may be installed on a laptop, how do I check",
+      "expected_categories": ["Malware"],
+      "expected_sections": ["Investigation Steps"]
+    },
+    {
+      "id": "q07",
+      "query": "unknown process using lots of memory and strange network connections",
+      "expected_categories": ["Malware"],
+      "expected_sections": ["Common Indicators"]
+    },
+    {
+      "id": "q08",
+      "query": "how do I contain a suspected trojan on an endpoint",
+      "expected_categories": ["Malware"],
+      "expected_sections": ["Defensive Measures"]
+    },
+    {
+      "id": "q09",
+      "query": "one host trying to connect to many different ports",
+      "expected_categories": ["Network Scanning"],
+      "expected_sections": ["Common Indicators"]
+    },
+    {
+      "id": "q10",
+      "query": "how can I tell if nmap is scanning my network",
+      "expected_categories": ["Network Scanning"],
+      "expected_sections": ["Common Indicators", "Investigation Steps"]
+    },
+    {
+      "id": "q11",
+      "query": "someone probing my ports",
+      "expected_categories": ["Network Scanning"],
+      "expected_sections": ["Common Indicators"]
+    },
+    {
+      "id": "q12",
+      "query": "steps to trace who was scanning my systems",
+      "expected_categories": ["Network Scanning"],
+      "expected_sections": ["Investigation Steps"]
+    },
+    {
+      "id": "q13",
+      "query": "urgent email demanding the admin password, is it phishing",
+      "expected_categories": ["Phishing"],
+      "expected_sections": ["Common Indicators"]
+    },
+    {
+      "id": "q14",
+      "query": "a user clicked a link from a strange email, what now",
+      "expected_categories": ["Phishing"],
+      "expected_sections": ["Investigation Steps"]
+    },
+    {
+      "id": "q15",
+      "query": "how do I check whether an email attachment is malicious",
+      "expected_categories": ["Phishing"],
+      "expected_sections": ["Investigation Steps"]
+    },
+    {
+      "id": "q16",
+      "query": "employee got a suspicious message asking for personal details",
+      "expected_categories": ["Phishing"],
+      "expected_sections": ["Common Indicators"]
+    },
+    {
+      "id": "q17",
+      "query": "database errors after a strange query string in my web logs",
+      "expected_categories": ["SQL Injection"],
+      "expected_sections": ["Common Indicators"]
+    },
+    {
+      "id": "q18",
+      "query": "saw blanket select statements in incoming requests",
+      "expected_categories": ["SQL Injection"],
+      "expected_sections": ["Common Indicators"]
+    },
+    {
+      "id": "q19",
+      "query": "malicious input manipulating my database queries",
+      "expected_categories": ["SQL Injection"],
+      "expected_sections": ["Description", "Common Indicators"]
+    },
+    {
+      "id": "q20",
+      "query": "protect the web application database from injection attacks",
+      "expected_categories": ["SQL Injection"],
+      "expected_sections": ["Defensive Measures"]
+    },
+    {
+      "id": "q21",
+      "query": "what data did the attacker access through the web app",
+      "expected_categories": ["SQL Injection"],
+      "expected_sections": ["Investigation Steps"]
+    },
+    {
+      "id": "q22",
+      "query": "best practices for multi factor authentication and account lockouts",
+      "expected_categories": ["Brute Force", "Phishing"],
+      "expected_sections": ["Defensive Measures"]
+    },
+    {
+      "id": "q23",
+      "query": "files suddenly encrypted and a ransom note appeared",
+      "expected_categories": ["Malware"],
+      "expected_sections": ["Common Indicators"]
+    },
+    {
+      "id": "q24",
+      "query": "restrict services that do not need to be exposed",
+      "expected_categories": ["Network Scanning"],
+      "expected_sections": ["Defensive Measures"]
+    }
+  ]
+}

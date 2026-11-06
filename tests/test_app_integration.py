@@ -5,6 +5,8 @@ independent of the optional RAG stack. One end-to-end smoke test exercises the
 real retrieval path and skips when it is not usable on this machine.
 """
 
+import io
+
 import pytest
 
 import app as app_module
@@ -380,3 +382,218 @@ def test_dashboard_escapes_untrusted_log_in_chat_attribute(client, monkeypatch):
     # Jinja escapes the log inside data-log; the raw tag cannot break out.
     assert "<script>alert(1)" not in html
     assert 'onload="x' not in html
+
+# ---------------------------------------------------------------- /api/batch
+
+BATCH_REPORT = {
+    "available": True,
+    "filename": "auth.log",
+    "lines_total": 3,
+    "lines_analyzed": 3,
+    "blank_lines": 0,
+    "clipped_lines": 0,
+    "unique_lines": 3,
+    "duplicates_collapsed": 0,
+    "truncated": False,
+    "limit": 200,
+    "max_samples": 50,
+    "suspicious": 2,
+    "benign": 1,
+    "threat_types": [
+        {"threat_type": "Brute Force", "count": 1},
+        {"threat_type": "Network Scanning", "count": 1},
+        {"threat_type": "Unknown", "count": 1},
+    ],
+    "risks": [
+        {"risk": "HIGH", "count": 1},
+        {"risk": "MEDIUM", "count": 1},
+        {"risk": "LOW", "count": 1},
+    ],
+    "samples": [],
+    "samples_truncated": False,
+    "errors": [],
+    "error_count": 0,
+    "skipped_lines": 0,
+    "duration_ms": 12,
+    "error": None,
+}
+
+
+def _stub_batch(record=None):
+    def stub(text, filename=None):
+        result = dict(BATCH_REPORT)
+        result["filename"] = filename
+        result["text"] = text
+        if record is not None:
+            record.append((text, filename))
+        return result
+
+    return stub
+
+
+def test_api_batch_requires_a_file_or_content(client):
+    response = client.post("/api/batch", json={})
+
+    assert response.status_code == 400
+    assert "Upload a file" in response.get_json()["error"]
+
+
+@pytest.mark.parametrize("content", ["", "   ", 42, None])
+def test_api_batch_rejects_invalid_content(client, content):
+    response = client.post("/api/batch", json={"content": content})
+
+    assert response.status_code == 400
+    assert "non-empty" in response.get_json()["error"]
+
+
+def test_api_batch_rejects_an_empty_upload(client):
+    response = client.post(
+        "/api/batch",
+        data={"file": (io.BytesIO(b""), "empty.log")},
+        content_type="multipart/form-data",
+    )
+
+    assert response.status_code == 400
+    assert "empty" in response.get_json()["error"]
+
+
+def test_api_batch_rejects_an_oversized_upload(client, monkeypatch):
+    monkeypatch.setattr(app_module, "MAX_UPLOAD_BYTES", 8)
+
+    response = client.post(
+        "/api/batch",
+        data={"file": (io.BytesIO(b"x" * 20), "big.log")},
+        content_type="multipart/form-data",
+    )
+
+    assert response.status_code == 400
+    assert "too large" in response.get_json()["error"]
+
+
+def test_api_batch_rejects_oversized_json_content(client, monkeypatch):
+    monkeypatch.setattr(app_module, "MAX_UPLOAD_BYTES", 8)
+
+    response = client.post("/api/batch", json={"content": "x" * 20})
+
+    assert response.status_code == 400
+    assert "too large" in response.get_json()["error"]
+
+
+def test_api_batch_accepts_an_uploaded_file(client, monkeypatch):
+    record = []
+    monkeypatch.setattr(app_module, "analyze_text_batch", _stub_batch(record))
+
+    response = client.post(
+        "/api/batch",
+        data={"file": (io.BytesIO(b"nmap port scan\n"), "auth.log")},
+        content_type="multipart/form-data",
+    )
+    body = response.get_json()
+
+    assert response.status_code == 200
+    assert body["suspicious"] == 2
+    assert body["filename"] == "auth.log"
+    assert record == [("nmap port scan\n", "auth.log")]
+
+
+def test_api_batch_strips_directories_from_the_filename(client, monkeypatch):
+    monkeypatch.setattr(app_module, "analyze_text_batch", _stub_batch())
+
+    response = client.post(
+        "/api/batch",
+        data={"file": (io.BytesIO(b"line"), r"..\..\etc\evil.log")},
+        content_type="multipart/form-data",
+    )
+
+    name = response.get_json()["filename"]
+    assert "/" not in name and "\\" not in name
+    assert name.endswith("evil.log")
+
+
+def test_clean_filename_keeps_only_the_basename():
+    assert app_module._clean_filename(r"..\..\etc\evil.log") == "evil.log"
+    assert app_module._clean_filename("/var/log/auth.log") == "auth.log"
+    assert app_module._clean_filename("   ") is None
+    assert app_module._clean_filename(None) is None
+
+
+def test_api_batch_accepts_json_content(client, monkeypatch):
+    monkeypatch.setattr(app_module, "analyze_text_batch", _stub_batch())
+
+    response = client.post(
+        "/api/batch",
+        json={"content": "nmap port scan", "filename": "scan.txt"},
+    )
+
+    assert response.status_code == 200
+    assert response.get_json()["filename"] == "scan.txt"
+
+
+def test_api_batch_rejects_a_file_with_only_blank_lines(client, monkeypatch):
+    def stub(text, filename=None):
+        report = dict(BATCH_REPORT)
+        report.update({"lines_total": 0, "lines_analyzed": 0, "suspicious": 0})
+        return report
+
+    monkeypatch.setattr(app_module, "analyze_text_batch", stub)
+
+    response = client.post("/api/batch", json={"content": "x"})
+
+    assert response.status_code == 400
+    assert "no non-blank lines" in response.get_json()["error"]
+
+
+def test_api_batch_survives_an_analyzer_failure(client, monkeypatch):
+    def boom(text, filename=None):
+        raise RuntimeError("analyzer exploded")
+
+    monkeypatch.setattr(app_module, "analyze_text_batch", boom)
+
+    response = client.post("/api/batch", json={"content": "nmap port scan"})
+    body = response.get_json()
+
+    assert response.status_code == 200
+    assert body["available"] is False
+    assert "analyzer exploded" in body["error"]
+
+
+def test_api_batch_runs_the_real_analyzer(client):
+    content = (
+        "Failed password for admin from 10.0.0.5 port 22 ssh2 attempts=20\n"
+        "nmap port scan from 10.0.0.9\n"
+        "service started successfully\n"
+    )
+
+    response = client.post("/api/batch", json={"content": content})
+    body = response.get_json()
+
+    assert response.status_code == 200
+    assert body["lines_analyzed"] == 3
+    assert body["suspicious"] == 2
+    assert body["benign"] == 1
+    counts = {row["threat_type"]: row["count"] for row in body["threat_types"]}
+    assert counts["Brute Force"] == 1
+    assert counts["Network Scanning"] == 1
+    assert counts["Unknown"] == 1
+    assert body["duration_ms"] >= 0
+
+
+# --------------------------------------------------------- batch panel in UI
+
+def test_dashboard_renders_batch_panel(client):
+    html = client.get("/").get_data(as_text=True)
+
+    assert 'id="batch-panel"' in html
+    assert 'id="batch-form"' in html
+    assert 'id="batch-file"' in html
+    assert 'fetch("/api/batch"' in html
+    assert "Batch Log File Analysis" in html
+    assert "CYBERGUARD_BATCH_MAX_LINES" in html
+
+
+def test_dashboard_shows_the_batch_line_limit(client, monkeypatch):
+    monkeypatch.setattr(app_module, "batch_max_lines", lambda: 42)
+
+    html = client.get("/").get_data(as_text=True)
+
+    assert "first 42 non-blank" in html

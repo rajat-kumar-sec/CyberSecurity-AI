@@ -7,6 +7,11 @@ Implemented:
              Flask dashboard and API
   Step 5     assistant context supply (rag.assistant): grounded prompt,
              deterministic summary, optional local Ollama adapter
+  Step 6     batch log-file analysis (batch.py): per-line verdicts and a
+             threat/risk summary, exposed as POST /api/batch and a CLI
 
-Planned (not implemented): chat UI, user-approved conversation memory.
+The dashboard also has a single-turn chat panel (templates/index.html) on top
+of Step 5; it stores nothing.
+
+Planned (not implemented): user-approved conversation memory.
 """

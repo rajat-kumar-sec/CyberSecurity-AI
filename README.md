@@ -32,8 +32,12 @@ machine-learning model.
 - **Chat panel**: ask follow-up questions about the current analysis from the
   dashboard. Vanilla JS, no new dependencies, no persistence, answers rendered
   as text (never HTML)
+- **Batch log-file analysis**: upload a `.log`/`.txt` file and get per-line
+  verdicts plus a threat/risk summary, from the dashboard or `POST /api/batch`.
+  The file is read in memory, never saved
 - **SOC-style dashboard**: dark-UI web interface with risk-level colour coding
-- **REST API** (`POST /api/analyze`, `POST /api/retrieve`) for programmatic use
+- **REST API** (`POST /api/analyze`, `POST /api/retrieve`, `POST /api/assistant`,
+  `POST /api/batch`) for programmatic use
 - **JSON + console reports**: structured output saved to `logs/latest_report.json`
 
 ## Project Architecture
@@ -42,6 +46,7 @@ machine-learning model.
 CyberSecurity-AI/
 ├── app.py                  # Flask app: dashboard (Jinja template) + REST API
 ├── analyzer.py             # Core engine: rule engine + ML fusion + evidence extraction
+├── batch.py                # Line-by-line log-file analysis (API + CLI)
 ├── knowledge.py            # Knowledge-base retriever (exact threat → txt file)
 ├── report.py               # Console report generator
 ├── ml_model.py             # Trainer (uncalibrated): TF-IDF + LogReg, train/test split
@@ -256,6 +261,72 @@ ollama pull qwen2.5:1.5b
 If the server is not running, the model is missing, or the request times out,
 the answer falls back to the deterministic summary and `error` records why.
 
+### Batch log-file analysis
+
+Upload a file (multipart field `file`) or send its text as JSON:
+
+```bash
+curl -X POST http://127.0.0.1:5000/api/batch -F "file=@C:\logs\auth.log"
+```
+
+```bash
+curl -X POST http://127.0.0.1:5000/api/batch ^
+     -H "Content-Type: application/json" ^
+     -d "{\"content\": \"nmap port scan from 10.0.0.9\\nservice started\", \"filename\": \"scan.log\"}"
+```
+
+Response (abridged):
+
+```json
+{
+  "available": true,
+  "filename": "auth.log",
+  "lines_total": 200,
+  "lines_analyzed": 200,
+  "truncated": false,
+  "limit": 200,
+  "suspicious": 125,
+  "benign": 75,
+  "threat_types": [
+    { "threat_type": "Unknown", "count": 75 },
+    { "threat_type": "Brute Force", "count": 25 }
+  ],
+  "risks": [ { "risk": "HIGH", "count": 100 }, { "risk": "MEDIUM", "count": 25 }, { "risk": "LOW", "count": 75 } ],
+  "samples": [
+    { "line_number": 1, "threat_type": "Brute Force", "risk": "HIGH", "source_ip": "10.0.0.7", "username": "root", "attempts": 20, "snippet": "..." }
+  ],
+  "errors": [],
+  "error_count": 0,
+  "duration_ms": 4280
+}
+```
+
+Limits and behaviour:
+
+| Limit | Value | Why |
+|---|---|---|
+| File size | 1 MiB | read fully into memory |
+| Lines analysed | 200 (`CYBERGUARD_BATCH_MAX_LINES`, hard cap 2000) | the analyzer runs one model prediction per line |
+| Sample rows | 50 suspicious lines per response | keeps the payload small |
+
+Each line is passed to the **same** `analyzer.analyze_log` used by the
+single-log form, so a line's verdict does not depend on how it was submitted.
+Identical lines are analysed once and mapped back, and lines that fail are
+counted in `error_count` with an example in `errors` instead of failing the
+whole file. A file larger than the line cap reports `truncated: true` together
+with `lines_total`, so nothing is silently ignored.
+
+The same engine runs offline from the CLI, which has no request timeout:
+
+```bash
+python batch.py logs\auth.log            # human-readable summary
+python batch.py logs\auth.log --json     # full report
+python batch.py logs\auth.log --limit 1000
+```
+
+Measured on the reference laptop: **200 lines in 3.6–4.3 s** (roughly 18–21 ms
+per line, including one scikit-learn prediction per line).
+
 ### Retraining the model
 
 ```bash
@@ -368,7 +439,8 @@ Covers: the rule engine (all categories), evidence extraction, ML fusion
 output shape, JSON report writing, the Flask dashboard and API (including
 error handling), knowledge retrieval (including unknown-threat fallback),
 chunking/embedding/store ingestion, BM25/vector/hybrid retrieval and
-evaluation metrics, and the retrieval integration layer — 152 tests, with
+evaluation metrics, the retrieval integration layer, the grounded assistant and
+batch log-file analysis — 204 tests, with
 RAG-dependent tests skipping cleanly when the optional packages are absent.
 
 ## Roadmap
@@ -383,7 +455,10 @@ RAG-dependent tests skipping cleanly when the optional packages are absent.
    dashboard chat panel. Sustained conversation (memory across turns) is not
    implemented.
 3. **User-approved conversation memory** — nothing remembered without consent.
-4. **Batch log-file analysis**.
+4. **Batch log-file analysis** — **done**: `POST /api/batch` and
+   `python batch.py <file>` analyse a file line by line with the same engine,
+   summarise threats/risks, and cap work per request (200 lines by default,
+   hard cap 2000) so a large file cannot stall the app.
 5. **Carefully controlled defensive actions** — strict allowlist, explicit
    human confirmation, full audit logging, dry-run mode first.
 

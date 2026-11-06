@@ -1,5 +1,11 @@
 from flask import Flask, render_template, request, jsonify
 from analyzer import analyze_log
+from batch import (
+    MAX_UPLOAD_BYTES,
+    analyze_text as analyze_text_batch,
+    decode_text,
+    max_lines as batch_max_lines,
+)
 from rag.assistant import MAX_QUESTION_CHARS, explain as explain_analysis
 from rag.context import DEFAULT_TOP_K, VALID_MODES, build_context
 
@@ -52,6 +58,34 @@ def _assistant_for(result, context, question=None, provider=None):
         }
 
 
+def _batch_for(text, filename=None):
+    """Analyse a log file without letting one bad line fail the request."""
+    try:
+        return analyze_text_batch(text, filename=filename)
+    except Exception as exc:
+        return {
+            "available": False,
+            "filename": filename,
+            "lines_total": 0,
+            "lines_analyzed": 0,
+            "suspicious": 0,
+            "benign": 0,
+            "threat_types": [],
+            "risks": [],
+            "samples": [],
+            "errors": [],
+            "error": f"{type(exc).__name__}: {exc}",
+        }
+
+
+def _clean_filename(name):
+    """Keep only a display-safe file name: no directory components."""
+    if not isinstance(name, str):
+        return None
+    name = name.replace("\\", "/").split("/")[-1].strip()
+    return name[:120] or None
+
+
 @app.route("/", methods=["GET", "POST"])
 def home():
 
@@ -75,7 +109,8 @@ def home():
         result=result,
         log=log,
         context=context,
-        summary=summary
+        summary=summary,
+        batch_limit=batch_max_lines()
     )
 
 
@@ -204,6 +239,80 @@ def api_assistant():
         "retrieved_context": context,
         "assistant": assistant,
     })
+
+
+@app.route("/api/batch", methods=["POST"])
+def api_batch():
+    """Analyse a whole log file line by line.
+
+    Accepts either ``multipart/form-data`` with a ``file`` part, or JSON
+    ``{"content": "...", "filename": "optional"}``.
+
+    Every line goes through the same analyzer used by ``/api/analyze``, so the
+    verdict for a line does not depend on how it was submitted. Very large
+    files are truncated at ``CYBERGUARD_BATCH_MAX_LINES`` (default 200) because
+    the analyzer runs a model prediction per line; the response reports
+    ``truncated`` and ``lines_total`` so the caller knows what was skipped.
+    """
+
+    filename = None
+    text = None
+
+    if "file" in request.files:
+        upload = request.files["file"]
+        filename = _clean_filename(upload.filename)
+        payload = upload.read(MAX_UPLOAD_BYTES + 1)
+
+        if len(payload) > MAX_UPLOAD_BYTES:
+            return jsonify({
+                "error": (
+                    f"File is too large; the limit is {MAX_UPLOAD_BYTES} "
+                    "bytes."
+                )
+            }), 400
+
+        if not payload:
+            return jsonify({"error": "The uploaded file is empty."}), 400
+
+        text = decode_text(payload)
+
+    else:
+        data = request.get_json(silent=True)
+
+        if not data or "content" not in data:
+            return jsonify({
+                "error": (
+                    "Upload a file as 'file', or send JSON with a 'content' "
+                    "field."
+                )
+            }), 400
+
+        content = data["content"]
+
+        if not isinstance(content, str) or not content.strip():
+            return jsonify({
+                "error": "Content must be a non-empty string."
+            }), 400
+
+        if len(content.encode("utf-8")) > MAX_UPLOAD_BYTES:
+            return jsonify({
+                "error": (
+                    f"Content is too large; the limit is {MAX_UPLOAD_BYTES} "
+                    "bytes."
+                )
+            }), 400
+
+        text = content
+        filename = _clean_filename(data.get("filename"))
+
+    report = _batch_for(text, filename)
+
+    if report.get("available") and not report.get("lines_total"):
+        return jsonify({
+            "error": "The file contains no non-blank lines."
+        }), 400
+
+    return jsonify(report)
 
 
 if __name__ == "__main__":

@@ -145,6 +145,60 @@
             margin: 10px 0 0 0;
         }
 
+        #chat-form {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 12px;
+        }
+
+        #chat-question {
+            flex: 1 1 320px;
+            padding: 10px 12px;
+            background: #020617;
+            color: #e5e7eb;
+            border: 1px solid #374151;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        #chat-form button {
+            margin-top: 0;
+            padding: 10px 20px;
+            font-size: 14px;
+        }
+
+        #chat-form button:disabled {
+            background: #1e3a8a;
+            cursor: wait;
+        }
+
+        .chat-msg {
+            margin-top: 12px;
+            padding: 10px 14px;
+            border-radius: 8px;
+            border: 1px solid #334155;
+            background: #0b1220;
+        }
+
+        .chat-user {
+            border-color: #1d4ed8;
+        }
+
+        .chat-text {
+            margin: 0;
+            white-space: pre-line;
+            font-size: 14px;
+            line-height: 1.55;
+            color: #e5e7eb;
+        }
+
+        .chat-meta {
+            margin: 8px 0 0 0;
+            color: #94a3b8;
+            font-size: 12px;
+        }
+
         .section {
             background: #1e293b;
             margin-top: 20px;
@@ -343,11 +397,145 @@
 
         {% endif %}
 
+        <div class="section" id="assistant-chat" data-log="{{ log }}">
+
+            <h2>💬 Ask About This Analysis</h2>
+
+            <p class="hint">
+                Answers are grounded in the analysis above and the retrieved
+                knowledge passages, and generated locally. Nothing is stored
+                between questions.
+            </p>
+
+            <form id="chat-form" autocomplete="off">
+
+                <input id="chat-question" type="text" maxlength="2000"
+                    placeholder="e.g. What should I check first?"
+                    aria-label="Question about this analysis">
+
+                <button type="submit" id="chat-send">Ask</button>
+
+            </form>
+
+            <p id="chat-status" class="hint" role="status" aria-live="polite"></p>
+
+            <div id="chat-transcript"></div>
+
+            <noscript>
+                <p class="hint">
+                    The chat panel needs JavaScript. You can call
+                    <code>POST /api/assistant</code> directly instead.
+                </p>
+            </noscript>
+
+        </div>
+
     </div>
 
     {% endif %}
 
 </div>
+
+<script>
+(function () {
+    "use strict";
+
+    var chat = document.getElementById("assistant-chat");
+    var form = document.getElementById("chat-form");
+    if (!chat || !form) {
+        return;
+    }
+
+    var input = document.getElementById("chat-question");
+    var button = document.getElementById("chat-send");
+    var status = document.getElementById("chat-status");
+    var transcript = document.getElementById("chat-transcript");
+
+    function addMessage(role, text, meta) {
+        var wrapper = document.createElement("div");
+        wrapper.className = "chat-msg chat-" + role;
+
+        var bubble = document.createElement("p");
+        bubble.className = "chat-text";
+        // textContent (never innerHTML): knowledge-base text is untrusted.
+        bubble.textContent = text;
+        wrapper.appendChild(bubble);
+
+        if (meta) {
+            var note = document.createElement("p");
+            note.className = "chat-meta";
+            note.textContent = meta;
+            wrapper.appendChild(note);
+        }
+
+        transcript.appendChild(wrapper);
+    }
+
+    function buildMeta(assistant) {
+        var parts = ["provider: " + (assistant.provider || "unknown")];
+        if (assistant.model) {
+            parts.push("model: " + assistant.model);
+        }
+        if (assistant.error) {
+            parts.push("fallback: " + assistant.error);
+        }
+        if (assistant.citations && assistant.citations.length) {
+            parts.push("sources: " + assistant.citations.map(function (citation) {
+                return "[" + citation.index + "] " + citation.category +
+                    " / " + citation.section;
+            }).join(", "));
+        }
+        return parts.join(" \u00b7 ");
+    }
+
+    form.addEventListener("submit", function (event) {
+        event.preventDefault();
+
+        var log = (chat.getAttribute("data-log") || "").trim();
+        var question = input.value.trim();
+
+        if (!log) {
+            status.textContent = "Analyze a log first, then ask a question.";
+            return;
+        }
+        if (!question) {
+            status.textContent = "Type a question first.";
+            return;
+        }
+
+        addMessage("user", question);
+        input.value = "";
+        button.disabled = true;
+        status.textContent = "Thinking locally...";
+
+        fetch("/api/assistant", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ log: log, question: question })
+        }).then(function (response) {
+            return response.json().then(function (data) {
+                if (!response.ok) {
+                    throw new Error(data.error || "Request failed.");
+                }
+                return data;
+            });
+        }).then(function (data) {
+            var assistant = data.assistant || {};
+            addMessage(
+                "assistant",
+                assistant.answer || "(empty answer)",
+                buildMeta(assistant)
+            );
+            status.textContent = "";
+        }).catch(function (error) {
+            status.textContent = "Error: " + error.message;
+        }).finally(function () {
+            button.disabled = false;
+            input.focus();
+        });
+    });
+})();
+</script>
 
 </body>
 </html>

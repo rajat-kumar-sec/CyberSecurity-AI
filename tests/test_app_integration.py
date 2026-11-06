@@ -341,3 +341,42 @@ def test_dashboard_hides_summary_without_log(client):
     response = client.get("/")
 
     assert "Analyst Summary" not in response.get_data(as_text=True)
+
+
+# --------------------------------------------------------------------- chat UI
+
+def test_dashboard_renders_chat_panel(client, monkeypatch):
+    monkeypatch.setattr(
+        app_module, "build_context",
+        lambda query, top_k=4, mode="hybrid": _fake_context(query),
+    )
+
+    html = client.post("/", data={"log": LOG}).get_data(as_text=True)
+
+    assert 'id="assistant-chat"' in html
+    assert 'id="chat-form"' in html
+    assert 'id="chat-question"' in html
+    assert "Ask About This Analysis" in html
+    assert 'fetch("/api/assistant"' in html
+    # Answers are inserted with textContent, never innerHTML.
+    assert "bubble.textContent = text" in html
+
+
+def test_dashboard_hides_chat_panel_without_log(client):
+    response = client.get("/")
+
+    assert 'id="assistant-chat"' not in response.get_data(as_text=True)
+
+
+def test_dashboard_escapes_untrusted_log_in_chat_attribute(client, monkeypatch):
+    monkeypatch.setattr(
+        app_module, "build_context",
+        lambda query, top_k=4, mode="hybrid": _fake_context(query),
+    )
+
+    payload = '<script>alert(1)</script> failed login " onload="x'
+    html = client.post("/", data={"log": payload}).get_data(as_text=True)
+
+    # Jinja escapes the log inside data-log; the raw tag cannot break out.
+    assert "<script>alert(1)" not in html
+    assert 'onload="x' not in html

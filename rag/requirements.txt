@@ -1,0 +1,20 @@
+# CyberGuard AI — RAG-only dependencies (Steps 1-2: skeleton and knowledge ingestion)
+#
+# ISOLATED by design: never merge this into the core requirements.txt.
+# The core app (analyzer, Flask dashboard, API, ML model) runs fine without
+# these packages — rag/*.py imports them lazily and raises a descriptive
+# error only when RAG features are actually used.
+#
+# Install on Windows:
+#   python -m venv .venv
+#   .venv\Scripts\activate
+#   pip install -r requirements.txt -r rag/requirements.txt
+#
+# Embedding model (auto-downloaded once, ~0.09 GB, needs internet once):
+#   sentence-transformers/all-MiniLM-L6-v2  (ONNX build via fastembed)
+#   384 dimensions, license Apache-2.0, ~256-token context
+# model: sentence-transformers/all-MiniLM-L6-v2
+
+# Verified versions (Python 3.14.8, Windows x64, tested in this project):
+fastembed==0.9.1
+chromadb==1.5.9

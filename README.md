@@ -18,8 +18,19 @@ machine-learning model.
 - **Security findings + defensive recommendations** per detected threat
 - **Knowledge base**: a curated text reference per threat (indicators, defensive
   measures, investigation steps) attached to every analysis
+- **Hybrid knowledge retrieval (RAG)**: BM25 keyword matching fused with local
+  sentence-embedding search via Reciprocal Rank Fusion, surfaced in the
+  dashboard and through `POST /api/retrieve`. Fully offline after a one-time
+  model download. Measured on a 24-query set: hybrid **matches** vector-only
+  (MRR 97.9%) — it does not beat it. See [Retrieval (RAG)](#retrieval-rag).
+- **Grounded analyst summary**: a deterministic, fully offline explanation of
+  each analysis, built from the findings, recommendations and retrieved
+  passages
+- **Optional local LLM Q&A**: feature-flagged adapter for a locally running
+  Ollama server (`POST /api/assistant`). Disabled by default, no cloud calls,
+  and any failure falls back to the deterministic answer
 - **SOC-style dashboard**: dark-UI web interface with risk-level colour coding
-- **REST API** (`POST /api/analyze`) for programmatic use
+- **REST API** (`POST /api/analyze`, `POST /api/retrieve`) for programmatic use
 - **JSON + console reports**: structured output saved to `logs/latest_report.json`
 
 ## Project Architecture
@@ -34,12 +45,24 @@ CyberSecurity-AI/
 ├── ml_model_v1.py          # Historical trainer iterations (kept intentionally)
 ├── ml_model_v2.py          #   v2 adds 5-fold StratifiedKFold cross-validation
 ├── ml_model_v3.py          #   v3 adds sigmoid calibration (produces the saved model)
-├── requirements.txt        # Flask, scikit-learn, joblib
+├── rag/                    # Retrieval layer (optional dependency set)
+│   ├── chunker.py          # Section-aware knowledge chunking
+│   ├── embedder.py         # FastEmbed MiniLM embeddings (384-d, ONNX)
+│   ├── store.py            # Persistent Chroma vector store
+│   ├── retriever.py        # BM25 / vector / RRF hybrid retrieval
+│   ├── evaluate.py         # Recall@3, Recall@5, MRR evaluation
+│   ├── context.py          # App-facing retrieval context (Step 4)
+│   └── assistant.py        # Grounded context supply + optional local LLM (Step 5)
+├── ingest_knowledge.py     # Idempotent knowledge-base ingestion CLI
+├── requirements.txt        # Flask, scikit-learn, joblib (core only)
+├── rag/requirements.txt    # Isolated RAG dependencies (never merged into core)
 ├── templates/
 │   └── index.html          # Dashboard UI (rendered by Flask)
-├── tests/                  # pytest: analyzer, Flask API, knowledge retrieval
+├── tests/                  # pytest: analyzer, API, RAG, retrieval, integration
 ├── data/
 │   ├── knowledge/          # 5 curated knowledge-base text files
+│   ├── eval/               # Retrieval evaluation dataset (24 queries)
+│   ├── vectorstore/        # Generated Chroma store (git-ignored)
 │   └── ml/                 # Labelled training data (CSV)
 ├── models/
 │   └── threat_classifier.joblib   # Trained + calibrated pipeline
@@ -67,6 +90,12 @@ The rule engine and the ML model act as complementary signals: rules give
 human-readable findings and stable priority; ML provides category prediction and
 a calibrated confidence score.
 
+At the application layer, each analyzed log also receives a **retrieved
+context** block — hybrid BM25 + embedding search over the same knowledge base.
+This is purely additive: `analyzer.py` is untouched, the exact-name reference is
+still attached, and if the optional RAG packages or the vector store are
+missing, retrieval is reported as unavailable instead of failing the request.
+
 ## Setup
 
 Requires Python 3.10+ (developed on 3.14).
@@ -87,6 +116,21 @@ pip install -r requirements.txt
 # 4. (For tests only) install pytest
 pip install pytest
 ```
+
+### Optional: knowledge retrieval (RAG)
+
+The dashboard and API work without these packages; retrieval simply reports
+itself as unavailable. To enable hybrid retrieval:
+
+```bash
+pip install -r rag\requirements.txt      # Windows
+# pip install -r rag/requirements.txt    # Linux/macOS
+
+python ingest_knowledge.py               # one-off: ~87 MB model download, builds data/vectorstore/
+```
+
+`rag/requirements.txt` is intentionally separate from `requirements.txt` so the
+core analyzer never depends on the retrieval stack.
 
 ## Usage
 
@@ -130,6 +174,80 @@ Response example (abridged):
 }
 ```
 
+### Semantic knowledge retrieval
+
+```bash
+curl -X POST http://127.0.0.1:5000/api/retrieve ^
+     -H "Content-Type: application/json" ^
+     -d "{\"query\": \"someone probing my ports\", \"top_k\": 3, \"mode\": \"hybrid\"}"
+```
+
+`mode` is one of `hybrid` (default), `bm25`, `vector`; `top_k` must be 1–20.
+Response (abridged):
+
+```json
+{
+  "query": "someone probing my ports",
+  "mode": "hybrid",
+  "available": true,
+  "truncated": false,
+  "error": null,
+  "passages": [
+    {
+      "id": "knowledge-...",
+      "title": "Network Scanning",
+      "source_file": "network_scanning.txt",
+      "category": "Network Scanning",
+      "section": "Common Indicators",
+      "snippet": "Network Scanning - Common Indicators: ...",
+      "score": 0.0325,
+      "retrieval_sources": ["bm25", "vector"]
+    }
+  ]
+}
+```
+
+The dashboard renders the same passages in a **Related Knowledge** panel after
+an analysis, and `POST /api/analyze` includes them under `retrieved_context`.
+
+### Grounded assistant
+
+```bash
+curl -X POST http://127.0.0.1:5000/api/assistant ^
+     -H "Content-Type: application/json" ^
+     -d "{\"log\": \"Failed password for admin from 10.0.0.5 port 22 ssh2: 50 failed attempts\", \"question\": \"What should I check first?\"}"
+```
+
+Response (abridged):
+
+```json
+{
+  "analysis": { "threat_type": "Brute Force", "risk": "HIGH" },
+  "retrieved_context": { "available": true, "passages": [] },
+  "assistant": {
+    "answer": "Brute Force detected with HIGH risk. ... [1] ...",
+    "provider": "deterministic",
+    "model": null,
+    "error": null,
+    "available": true,
+    "question": "What should I check first?",
+    "citations": [ { "index": 1, "category": "Brute Force", "section": "Investigation Steps" } ],
+    "grounded_on": 4
+  }
+}
+```
+
+By default no model is involved. To route the same request to a local LLM:
+
+```bat
+set CYBERGUARD_LLM_PROVIDER=ollama
+set CYBERGUARD_LLM_MODEL=qwen2.5:1.5b
+ollama pull qwen2.5:1.5b
+```
+
+If the server is not running, the model is missing, or the request times out,
+the answer falls back to the deterministic summary and `error` records why.
+
 ### Retraining the model
 
 ```bash
@@ -137,6 +255,73 @@ python ml_model_v3.py    # calibrated pipeline; overwrites models/threat_classif
 ```
 
 Training data: `data/ml/training_data.csv` — single-labelled `log,threat_type` CSV.
+
+## Retrieval (RAG)
+
+```
+query ──► BM25 keyword search (rank-bm25, 26 chunks)     ──┐
+      └─► vector search (FastEmbed MiniLM → Chroma)      ──┤
+                                                          ▼
+                        RRF: score(d) = Σ wᵣ / (k + rankᵣ(d))
+                                                          ▼
+                    structured passages (deduped by chunk id)
+```
+
+- **Chunking:** one chunk per section (`Description`, `Common Indicators`, …),
+  deterministic content-derived IDs, full rebuild on every ingest.
+- **Embeddings:** `sentence-transformers/all-MiniLM-L6-v2` via FastEmbed
+  (ONNX, 384-d, Apache-2.0). Same model family and dimension as the torch
+  pipeline, but vectors are not guaranteed bit-identical to it.
+- **Fusion:** Reciprocal Rank Fusion (`k=60`, equal weights by default),
+  deduped by chunk ID, configurable weights and candidate depth.
+- **Degradation:** empty query → no passages; missing vector store → BM25
+  results only; missing RAG packages → `available: false`, request still succeeds.
+
+### Measured retrieval quality
+
+24 realistic queries (`data/eval/retrieval_eval.json`), top-k = 5:
+
+| Mode | Recall@3 | Recall@5 | MRR |
+|---|---|---|---|
+| BM25 | 100.0 % | 100.0 % | 86.8 % |
+| Vector | 100.0 % | 100.0 % | 97.9 % |
+| **Hybrid (RRF)** | 100.0 % | 100.0 % | **97.9 %** |
+
+Honest reading: on this small five-category knowledge base, **hybrid ties
+vector-only** and beats BM25; it is *not* demonstrated to improve accuracy.
+Its practical value is robustness — BM25 keeps results flowing without a
+vector store, and fusion hedges ranker errors. Recall saturates because any
+expected category in the top 5 counts as a hit, leaving MRR as the only
+discriminating metric.
+
+Reproduce with:
+
+```bash
+python -m rag.evaluate
+```
+
+Known limitations: 26 chunks is a tiny corpus, so BM25 IDF is unstable and
+copy-pasted section templates collide across categories; section-level accuracy
+is recorded in the dataset but not yet scored.
+
+## Assistant (Step 5)
+
+The assistant layer turns one analysis plus its retrieved passages into a
+grounded answer. Two providers, selected with `CYBERGUARD_LLM_PROVIDER`:
+
+| Provider | Default | Requirements | Behaviour |
+|---|---|---|---|
+| `deterministic` | **yes** | none | Composes a summary from findings, recommendations and passages. Instant, offline, no model. |
+| `ollama` | no | local Ollama server + a pulled model | Sends a grounded prompt to `127.0.0.1:11434`. Falls back to deterministic on any failure. |
+
+Grounding rules are encoded in the prompt: answer only from the supplied
+analysis and passages, cite passages as `[n]`, never invent indicators or
+commands, and say plainly when the knowledge base does not cover the question.
+
+**Privacy and memory:** no cloud requests; no conversation history is sent; the
+prompt contains only the current analysis, the current retrieved passages and
+the question; nothing is stored between calls. This is a single request/response
+call, not a chat session.
 
 ## Verified ML Metrics
 
@@ -155,8 +340,10 @@ Classes: `Brute Force, Malware, Network Scanning, Normal, Phishing, SQL Injectio
 **Honest limitations** — the training logs are built from sentence templates
 with varied IPs/usernames, so cross-validation folds can share template
 "siblings" and the scores above are optimistic versus fully unseen logs.
-Calibration also compresses confidence values (typical 0.25–0.55).
-A larger, template-grouped dataset is on the roadmap.
+Confidence values are also poorly spread: on the 120 training logs the maximum
+predicted probability ranges **0.51–0.88 (median 0.77)**, so a high confidence
+mostly reflects familiarity with the training templates rather than strong
+independent evidence. A larger, template-grouped dataset is on the roadmap.
 
 ## Running Tests
 
@@ -166,14 +353,21 @@ pytest -v
 
 Covers: the rule engine (all categories), evidence extraction, ML fusion
 output shape, JSON report writing, the Flask dashboard and API (including
-error handling), and knowledge retrieval (including unknown-threat fallback).
+error handling), knowledge retrieval (including unknown-threat fallback),
+chunking/embedding/store ingestion, BM25/vector/hybrid retrieval and
+evaluation metrics, and the retrieval integration layer — 149 tests, with
+RAG-dependent tests skipping cleanly when the optional packages are absent.
 
 ## Roadmap
 
-1. **Retrieval-Augmented Generation (RAG)** over an expanded cybersecurity
-   corpus (lightweight sentence embeddings + local vector store).
+1. ~~**Retrieval-Augmented Generation (RAG)** over an expanded cybersecurity
+   corpus (lightweight sentence embeddings + local vector store).~~ —
+   **done**: hybrid BM25 + embedding retrieval with evaluation, surfaced in
+   the dashboard (`Related Knowledge`) and the API (`/api/retrieve`).
 2. **Conversational assistant** powered by a local open-source LLM that
-   explains findings and answers questions.
+   explains findings and answers questions — **context supply done**
+   (grounded prompt, deterministic summary, optional Ollama adapter); a chat
+   UI and sustained conversation are not implemented yet.
 3. **User-approved conversation memory** — nothing remembered without consent.
 4. **Batch log-file analysis**.
 5. **Carefully controlled defensive actions** — strict allowlist, explicit

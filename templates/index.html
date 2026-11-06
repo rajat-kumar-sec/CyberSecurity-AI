@@ -100,6 +100,51 @@
             color: #22c55e;
         }
 
+        .passage {
+            border-top: 1px solid #334155;
+            padding-top: 12px;
+            margin-top: 12px;
+        }
+
+        .passage:first-of-type {
+            border-top: none;
+            margin-top: 0;
+            padding-top: 0;
+        }
+
+        .passage-head {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: baseline;
+            justify-content: space-between;
+        }
+
+        .passage-meta {
+            color: #94a3b8;
+            font-size: 12px;
+        }
+
+        .passage-text {
+            color: #cbd5e1;
+            font-size: 14px;
+            line-height: 1.5;
+            margin: 8px 0 0 0;
+        }
+
+        .hint {
+            color: #94a3b8;
+            font-size: 13px;
+        }
+
+        .summary-text {
+            color: #cbd5e1;
+            font-size: 14px;
+            line-height: 1.6;
+            white-space: pre-line;
+            margin: 10px 0 0 0;
+        }
+
         .section {
             background: #1e293b;
             margin-top: 20px;
@@ -240,6 +285,63 @@
             </ul>
 
         </div>
+
+        {% if context and context.passages %}
+
+        <div class="section">
+
+            <h2>📚 Related Knowledge</h2>
+
+            <p class="hint">
+                Retrieved from the local knowledge base with
+                {{ context.mode }} search (BM25 + embeddings), independent of
+                the exact-match reference above.
+            </p>
+
+            {% for passage in context.passages %}
+
+            <div class="passage">
+
+                <div class="passage-head">
+
+                    <span>
+                        <b>{{ passage.category }}</b> — {{ passage.section }}
+                    </span>
+
+                    <span class="passage-meta">
+                        {{ passage.source_file }} ·
+                        score {{ '%.4f' | format(passage.score) }} ·
+                        {{ passage.retrieval_sources | join('+') }}
+                    </span>
+
+                </div>
+
+                <p class="passage-text">{{ passage.snippet }}</p>
+
+            </div>
+
+            {% endfor %}
+
+        </div>
+
+        {% endif %}
+
+        {% if summary and summary.answer %}
+
+        <div class="section">
+
+            <h2>🧠 Analyst Summary</h2>
+
+            <p class="hint">
+                Generated locally with the {{ summary.provider }} provider.
+                Verify findings before acting.
+            </p>
+
+            <p class="summary-text">{{ summary.answer }}</p>
+
+        </div>
+
+        {% endif %}
 
     </div>
 

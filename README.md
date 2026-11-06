@@ -29,6 +29,9 @@ machine-learning model.
 - **Optional local LLM Q&A**: feature-flagged adapter for a locally running
   Ollama server (`POST /api/assistant`). Disabled by default, no cloud calls,
   and any failure falls back to the deterministic answer
+- **Chat panel**: ask follow-up questions about the current analysis from the
+  dashboard. Vanilla JS, no new dependencies, no persistence, answers rendered
+  as text (never HTML)
 - **SOC-style dashboard**: dark-UI web interface with risk-level colour coding
 - **REST API** (`POST /api/analyze`, `POST /api/retrieve`) for programmatic use
 - **JSON + console reports**: structured output saved to `logs/latest_report.json`
@@ -212,6 +215,11 @@ an analysis, and `POST /api/analyze` includes them under `retrieved_context`.
 
 ### Grounded assistant
 
+The dashboard exposes the same endpoint through an **Ask About This Analysis**
+chat panel: analyse a log, type a question, and the answer is appended to the
+transcript with its provider and citation list. The panel is plain JavaScript,
+loads no third-party script, and keeps the transcript in the DOM only.
+
 ```bash
 curl -X POST http://127.0.0.1:5000/api/assistant ^
      -H "Content-Type: application/json" ^
@@ -320,8 +328,13 @@ commands, and say plainly when the knowledge base does not cover the question.
 
 **Privacy and memory:** no cloud requests; no conversation history is sent; the
 prompt contains only the current analysis, the current retrieved passages and
-the question; nothing is stored between calls. This is a single request/response
-call, not a chat session.
+the question; nothing is stored between calls. The dashboard chat panel keeps
+its transcript in the browser DOM only — reloading clears it, and nothing is
+written to disk or to a session.
+
+The chat panel is therefore a sequence of independent request/response calls,
+not a conversation with memory: each question is answered from the same
+analysis and passages, and earlier questions are not sent back to the model.
 
 ## Verified ML Metrics
 
@@ -355,7 +368,7 @@ Covers: the rule engine (all categories), evidence extraction, ML fusion
 output shape, JSON report writing, the Flask dashboard and API (including
 error handling), knowledge retrieval (including unknown-threat fallback),
 chunking/embedding/store ingestion, BM25/vector/hybrid retrieval and
-evaluation metrics, and the retrieval integration layer — 149 tests, with
+evaluation metrics, and the retrieval integration layer — 152 tests, with
 RAG-dependent tests skipping cleanly when the optional packages are absent.
 
 ## Roadmap
@@ -365,9 +378,10 @@ RAG-dependent tests skipping cleanly when the optional packages are absent.
    **done**: hybrid BM25 + embedding retrieval with evaluation, surfaced in
    the dashboard (`Related Knowledge`) and the API (`/api/retrieve`).
 2. **Conversational assistant** powered by a local open-source LLM that
-   explains findings and answers questions — **context supply done**
-   (grounded prompt, deterministic summary, optional Ollama adapter); a chat
-   UI and sustained conversation are not implemented yet.
+   explains findings and answers questions — **done for single-turn use**:
+   grounded prompt, deterministic summary, optional Ollama adapter, and a
+   dashboard chat panel. Sustained conversation (memory across turns) is not
+   implemented.
 3. **User-approved conversation memory** — nothing remembered without consent.
 4. **Batch log-file analysis**.
 5. **Carefully controlled defensive actions** — strict allowlist, explicit

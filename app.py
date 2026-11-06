@@ -6,7 +6,12 @@ from batch import (
     decode_text,
     max_lines as batch_max_lines,
 )
-from rag.assistant import MAX_QUESTION_CHARS, explain as explain_analysis
+from rag.assistant import (
+    MAX_QUESTION_CHARS,
+    HistoryError,
+    explain as explain_analysis,
+    normalise_history,
+)
 from rag.context import DEFAULT_TOP_K, VALID_MODES, build_context
 
 app = Flask(__name__)
@@ -33,17 +38,22 @@ def _context_for(query, top_k=DEFAULT_TOP_K, mode="hybrid"):
         }
 
 
-def _assistant_for(result, context, question=None, provider=None):
+def _assistant_for(result, context, question=None, provider=None, history=None):
     """Answer from the analysis plus retrieved passages, never raising.
 
     ``provider=None`` honours the environment (deterministic by default);
     the dashboard passes ``"deterministic"`` explicitly so page rendering can
-    never block on a language model.
+    never block on a language model. ``history`` is optional, caller-owned
+    conversation context.
     """
     passages = (context or {}).get("passages") or []
     try:
         return explain_analysis(
-            result, passages, question=question, provider=provider
+            result,
+            passages,
+            question=question,
+            provider=provider,
+            history=history,
         )
     except Exception as exc:
         return {
@@ -53,6 +63,7 @@ def _assistant_for(result, context, question=None, provider=None):
             "error": f"{type(exc).__name__}: {exc}",
             "available": False,
             "question": question,
+            "history_used": 0,
             "citations": [],
             "grounded_on": len(passages),
         }
@@ -184,12 +195,17 @@ def api_retrieve():
 def api_assistant():
     """Grounded question/answer over one log.
 
-    Body: {"log": "...", "question": "optional", "provider": "deterministic"|"ollama"}
+    Body: {"log": "...", "question": "optional",
+           "provider": "deterministic"|"ollama",
+           "history": [{"role": "user"|"assistant", "content": "..."}]}
 
     The answer is built from the analysis and the retrieved knowledge passages.
     With the default deterministic provider no model is used; the optional
     ``ollama`` provider talks to a local server only and falls back to the
     deterministic answer when it is unavailable.
+
+    ``history`` is optional and caller-owned: the browser sends earlier turns
+    only when the user enables the memory toggle. Nothing is stored server-side.
     """
 
     data = request.get_json(silent=True)
@@ -229,10 +245,19 @@ def api_assistant():
             "error": "provider must be one of: deterministic, ollama."
         }), 400
 
+    history = data.get("history")
+
+    if history is not None:
+        try:
+            history = normalise_history(history)
+        except HistoryError as exc:
+            return jsonify({"error": str(exc)}), 400
+
     result = analyze_log(log)
     context = _context_for(log)
-    assistant = _assistant_for(result, context, question=question,
-                               provider=provider)
+    assistant = _assistant_for(
+        result, context, question=question, provider=provider, history=history
+    )
 
     return jsonify({
         "analysis": result,

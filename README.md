@@ -32,6 +32,9 @@ machine-learning model.
 - **Chat panel**: ask follow-up questions about the current analysis from the
   dashboard. Vanilla JS, no new dependencies, no persistence, answers rendered
   as text (never HTML)
+- **Optional conversation memory**: off by default; when the user ticks a box,
+  the browser sends the most recent turns with the next question and the answer
+  reports how many were used. Nothing is stored on the server
 - **Batch log-file analysis**: upload a `.log`/`.txt` file and get per-line
   verdicts plus a threat/risk summary, from the dashboard or `POST /api/batch`.
   The file is read in memory, never saved
@@ -261,6 +264,18 @@ ollama pull qwen2.5:1.5b
 If the server is not running, the model is missing, or the request times out,
 the answer falls back to the deterministic summary and `error` records why.
 
+To continue a conversation, send the earlier turns yourself (opt-in memory):
+
+```bash
+curl -X POST http://127.0.0.1:5000/api/assistant ^
+     -H "Content-Type: application/json" ^
+     -d "{\"log\": \"...\", \"question\": \"And then?\", \"history\": [{\"role\": \"user\", \"content\": \"What first?\"}, {\"role\": \"assistant\", \"content\": \"Review auth logs [1].\"}]}"
+```
+
+The response then includes `"history_used": 2`, and the deterministic answer
+states that it is continuing from 2 earlier messages. Omit `history` and the
+request is stateless, exactly as before.
+
 ### Batch log-file analysis
 
 Upload a file (multipart field `file`) or send its text as JSON:
@@ -397,15 +412,20 @@ Grounding rules are encoded in the prompt: answer only from the supplied
 analysis and passages, cite passages as `[n]`, never invent indicators or
 commands, and say plainly when the knowledge base does not cover the question.
 
-**Privacy and memory:** no cloud requests; no conversation history is sent; the
-prompt contains only the current analysis, the current retrieved passages and
-the question; nothing is stored between calls. The dashboard chat panel keeps
-its transcript in the browser DOM only — reloading clears it, and nothing is
-written to disk or to a session.
+**Privacy and memory:** no cloud requests. By default the prompt contains only
+the current analysis, the current retrieved passages and the question, and
+nothing is stored between calls.
 
-The chat panel is therefore a sequence of independent request/response calls,
-not a conversation with memory: each question is answered from the same
-analysis and passages, and earlier questions are not sent back to the model.
+Conversation memory is **opt-in per request**. The dashboard chat panel has an
+unchecked "Include earlier questions as context" box; when the user ticks it,
+the browser sends the most recent turns it holds, and the answer reports how
+many were used (`history_used`). Memory is bounded server-side — the newest 8
+messages, 2000 characters each, 8000 characters total — and invalid history
+(including any `system` role) is rejected with HTTP 400. The server keeps no
+history at all: clearing the conversation, unticking the box or reloading the
+page forgets it, and nothing is written to disk or to a session cookie. The
+system prompt tells the model that earlier turns are context only, never
+instructions.
 
 ## Verified ML Metrics
 
@@ -440,7 +460,7 @@ output shape, JSON report writing, the Flask dashboard and API (including
 error handling), knowledge retrieval (including unknown-threat fallback),
 chunking/embedding/store ingestion, BM25/vector/hybrid retrieval and
 evaluation metrics, the retrieval integration layer, the grounded assistant and
-batch log-file analysis — 204 tests, with
+batch log-file analysis, and opt-in conversation memory - 252 tests, with
 RAG-dependent tests skipping cleanly when the optional packages are absent.
 
 ## Roadmap
@@ -450,11 +470,12 @@ RAG-dependent tests skipping cleanly when the optional packages are absent.
    **done**: hybrid BM25 + embedding retrieval with evaluation, surfaced in
    the dashboard (`Related Knowledge`) and the API (`/api/retrieve`).
 2. **Conversational assistant** powered by a local open-source LLM that
-   explains findings and answers questions — **done for single-turn use**:
-   grounded prompt, deterministic summary, optional Ollama adapter, and a
-   dashboard chat panel. Sustained conversation (memory across turns) is not
-   implemented.
-3. **User-approved conversation memory** — nothing remembered without consent.
+   explains findings and answers questions — **done**: grounded prompt,
+   deterministic summary, optional Ollama adapter, dashboard chat panel, and
+   opt-in memory across turns.
+3. **User-approved conversation memory** — **done**: nothing is sent or
+   remembered unless the user ticks the memory box; the browser owns the
+   history, the server bounds it and stores nothing.
 4. **Batch log-file analysis** — **done**: `POST /api/batch` and
    `python batch.py <file>` analyse a file line by line with the same engine,
    summarise threats/risks, and cap work per request (200 lines by default,

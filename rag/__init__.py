@@ -11,7 +11,7 @@ Implemented:
              threat/risk summary, exposed as POST /api/batch and a CLI
 
 The dashboard also has a single-turn chat panel (templates/index.html) on top
-of Step 5; it stores nothing.
+of Step 5, with opt-in, browser-owned memory across turns.
 
-Planned (not implemented): user-approved conversation memory.
+Planned (not implemented): carefully controlled defensive actions.
 """

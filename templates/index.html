@@ -233,6 +233,158 @@
             font-size: 12px;
         }
 
+        /* ---------------------------------------------- companion chat UI */
+
+        .cc-toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 10px;
+            margin-top: 14px;
+        }
+
+        .cc-mode {
+            margin-top: 0;
+            padding: 8px 16px;
+            font-size: 13px;
+            border-radius: 20px;
+            background: #1f2937;
+            border: 1px solid #374151;
+        }
+
+        .cc-mode:hover {
+            background: #334155;
+        }
+
+        .cc-mode.cc-active {
+            background: #2563eb;
+            border-color: #2563eb;
+        }
+
+        .cc-mode:disabled {
+            opacity: .6;
+            cursor: wait;
+        }
+
+        #cc-mode-label {
+            flex: 1 1 280px;
+            margin: 0;
+            color: #94a3b8;
+            font-size: 12px;
+        }
+
+        #cc-messages {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 14px;
+            max-height: 440px;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        .cc-msg {
+            max-width: 85%;
+        }
+
+        .cc-msg-user {
+            align-self: flex-end;
+        }
+
+        .cc-msg-assistant {
+            align-self: flex-start;
+        }
+
+        .cc-bubble {
+            margin: 0;
+            padding: 12px 14px;
+            border-radius: 14px;
+            font-size: 14px;
+            line-height: 1.55;
+            white-space: pre-line;
+        }
+
+        .cc-msg-user .cc-bubble {
+            background: #1d4ed8;
+            color: #eff6ff;
+            border-bottom-right-radius: 4px;
+        }
+
+        .cc-msg-assistant .cc-bubble {
+            background: #0b1220;
+            border: 1px solid #334155;
+            color: #e5e7eb;
+            border-bottom-left-radius: 4px;
+        }
+
+        .cc-meta {
+            margin: 6px 0 0 0;
+            color: #94a3b8;
+            font-size: 11px;
+        }
+
+        #cc-form {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 14px;
+        }
+
+        #cc-input {
+            width: 100%;
+            box-sizing: border-box;
+            min-height: 64px;
+            max-height: 180px;
+            resize: vertical;
+            padding: 12px 14px;
+            background: #020617;
+            color: #e5e7eb;
+            border: 1px solid #374151;
+            border-radius: 12px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+
+        .cc-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .cc-actions button {
+            margin-top: 0;
+        }
+
+        #cc-send:disabled,
+        #cc-new-chat:disabled {
+            background: #1e3a8a;
+            cursor: wait;
+        }
+
+        #cc-new-chat {
+            background: #1f2937;
+            border: 1px solid #374151;
+            font-size: 13px;
+        }
+
+        #cc-new-chat:hover {
+            background: #334155;
+        }
+
+        #cc-status.cc-thinking {
+            animation: cc-pulse 1.2s ease-in-out infinite;
+        }
+
+        @keyframes cc-pulse {
+            0%, 100% { opacity: .55; }
+            50% { opacity: 1; }
+        }
+
+        @media (max-width: 700px) {
+            .cc-msg { max-width: 100%; }
+            #cc-messages { max-height: 360px; }
+        }
+
         #batch-form {
             display: flex;
             flex-wrap: wrap;
@@ -765,6 +917,57 @@
 
     {% endif %}
 
+    <div class="section" id="companion-chat">
+
+        <h2>🤖 Chat with CyberGuard</h2>
+
+        <p class="hint">
+            A local, advisory-only assistant: everyday conversation, general
+            security questions and incident coaching. No log required. It
+            cannot approve, execute or claim to have performed any defensive
+            action. The conversation lives only in this page and in server
+            memory for this session: starting a new chat or reloading the
+            page forgets it.
+        </p>
+
+        <div class="cc-toolbar" role="group" aria-label="Conversation mode">
+
+            <button type="button" id="cc-mode-companion" class="cc-mode cc-active"
+                data-mode="companion" aria-pressed="true">Companion</button>
+
+            <button type="button" id="cc-mode-security" class="cc-mode"
+                data-mode="security" aria-pressed="false">Security</button>
+
+            <p id="cc-mode-label"></p>
+
+        </div>
+
+        <div id="cc-messages" aria-live="polite"></div>
+
+        <form id="cc-form" autocomplete="off">
+
+            <textarea id="cc-input" rows="2" maxlength="2000"
+                placeholder="Type a message (Enter sends it, Shift+Enter adds a newline)"
+                aria-label="Message to the assistant"></textarea>
+
+            <div class="cc-actions">
+                <button type="submit" id="cc-send">Send</button>
+                <button type="button" id="cc-new-chat">New chat</button>
+            </div>
+
+        </form>
+
+        <p id="cc-status" class="hint" role="status" aria-live="polite"></p>
+
+        <noscript>
+            <p class="hint">
+                The chat panel needs JavaScript. You can call
+                <code>POST /api/chat</code> directly instead.
+            </p>
+        </noscript>
+
+    </div>
+
     <div class="section" id="network-activity">
 
         <h2>🌐 Network Activity</h2>
@@ -1135,6 +1338,244 @@
             input.focus();
         });
     });
+})();
+</script>
+
+<script>
+(function () {
+    "use strict";
+
+    var root = document.getElementById("companion-chat");
+    var form = document.getElementById("cc-form");
+    if (!root || !form) {
+        return;
+    }
+
+    var input = document.getElementById("cc-input");
+    var sendButton = document.getElementById("cc-send");
+    var newChatButton = document.getElementById("cc-new-chat");
+    var messages = document.getElementById("cc-messages");
+    var status = document.getElementById("cc-status");
+    var modeLabel = document.getElementById("cc-mode-label");
+    var modeButtons = [
+        document.getElementById("cc-mode-companion"),
+        document.getElementById("cc-mode-security")
+    ];
+
+    // Browser-owned conversation state. Nothing is persisted: the session id
+    // and the transcript live only in this page's memory and disappear on
+    // reload, "New chat", or server-side session expiry.
+    var sessionId = null;
+    var activeMode = "companion";
+    var busy = false;
+
+    var MODE_NOTES = {
+        companion: "Companion mode: everyday conversation, general security "
+            + "questions, empathetic replies.",
+        security: "Security mode: analysis coaching and formal, "
+            + "evidence-focused guidance. Use the Analyze panel for a "
+            + "specific log."
+    };
+
+    function setBusy(pending) {
+        busy = pending;
+        sendButton.disabled = pending;
+        newChatButton.disabled = pending;
+        status.classList.toggle("cc-thinking", pending);
+    }
+
+    function setStatus(text) {
+        status.textContent = text;
+    }
+
+    function clearMessages() {
+        while (messages.firstChild) {
+            messages.removeChild(messages.firstChild);
+        }
+    }
+
+    function appendMessage(role, text, meta) {
+        var wrapper = document.createElement("div");
+        wrapper.className = "cc-msg cc-msg-" + role;
+
+        var bubble = document.createElement("p");
+        bubble.className = "cc-bubble";
+        // textContent only: conversation text (user or model) is untrusted
+        // and must never be parsed as HTML.
+        bubble.textContent = text;
+        wrapper.appendChild(bubble);
+
+        if (meta) {
+            var note = document.createElement("p");
+            note.className = "cc-meta";
+            note.textContent = meta;
+            wrapper.appendChild(note);
+        }
+
+        messages.appendChild(wrapper);
+        messages.scrollTop = messages.scrollHeight;
+    }
+
+    function metaLine(data) {
+        var parts = [];
+        if (data.mode) {
+            parts.push("mode: " + data.mode);
+        }
+        if (data.provider) {
+            parts.push("provider: " + data.provider);
+        }
+        if (data.model) {
+            parts.push("model: " + data.model);
+        }
+        if (data.history_used) {
+            parts.push("context: " + data.history_used + " earlier turn(s)");
+        }
+        if (data.error) {
+            parts.push("fallback: " + data.error);
+        }
+        parts.push("advisory only - no actions taken");
+        return parts.join(" \u00b7 ");
+    }
+
+    function resetConversation() {
+        sessionId = null;
+        clearMessages();
+        setStatus("New conversation started. Nothing is stored.");
+    }
+
+    function updateModeLabel(clearedSession) {
+        modeLabel.textContent = MODE_NOTES[activeMode]
+            + " Selected mode: " + activeMode + ".";
+        if (clearedSession) {
+            // Never mix modes inside one session: switching starts fresh.
+            resetConversation();
+            setStatus("Mode changed - started a new conversation.");
+        }
+    }
+
+    function setMode(mode) {
+        if (busy || mode === activeMode) {
+            return;
+        }
+
+        var hadSession = sessionId !== null;
+        activeMode = mode;
+
+        for (var index = 0; index < modeButtons.length; index++) {
+            var button = modeButtons[index];
+            var pressed = button.getAttribute("data-mode") === mode;
+            button.classList.toggle("cc-active", pressed);
+            button.setAttribute("aria-pressed", pressed ? "true" : "false");
+        }
+
+        updateModeLabel(hadSession);
+    }
+
+    newChatButton.addEventListener("click", function () {
+        if (busy) {
+            return;
+        }
+        resetConversation();
+        input.focus();
+    });
+
+    for (var buttonIndex = 0; buttonIndex < modeButtons.length;
+         buttonIndex++) {
+        (function (button) {
+            button.addEventListener("click", function () {
+                setMode(button.getAttribute("data-mode"));
+            });
+        })(modeButtons[buttonIndex]);
+    }
+
+    input.addEventListener("keydown", function (event) {
+        // Enter sends, Shift+Enter inserts a newline (default behaviour).
+        if (event.key === "Enter" && !event.shiftKey) {
+            event.preventDefault();
+            if (!sendButton.disabled) {
+                if (form.requestSubmit) {
+                    form.requestSubmit();
+                } else {
+                    sendButton.click();
+                }
+            }
+        }
+    });
+
+    form.addEventListener("submit", function (event) {
+        event.preventDefault();
+
+        // Duplicate submissions are impossible while a request is pending:
+        // the guard and the disabled button are checked before sending.
+        if (busy) {
+            return;
+        }
+
+        var text = input.value.trim();
+        if (!text) {
+            setStatus("Type a message first.");
+            return;
+        }
+
+        setBusy(true);
+        setStatus("Preparing your response\u2026");
+
+        var payload = { message: text, mode: activeMode };
+        if (sessionId) {
+            payload.session_id = sessionId;
+        }
+
+        fetch("/api/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        }).then(function (response) {
+            return response.json().then(function (data) {
+                return { ok: response.ok, status: response.status, data: data };
+            });
+        }).then(function (result) {
+            var data = result.data || {};
+
+            if (!result.ok) {
+                var detail = data.error || "Request failed.";
+
+                if (result.status === 404) {
+                    // Session expired or ended server-side: forget it and
+                    // invite the user to try again in a fresh conversation.
+                    sessionId = null;
+                    clearMessages();
+                    setStatus(
+                        "The conversation expired. A fresh one is ready - "
+                        + "send your message again. (" + detail + ")"
+                    );
+                } else {
+                    setStatus("Error: " + detail);
+                }
+                return;
+            }
+
+            sessionId = data.session_id;
+            appendMessage("user", text);
+            appendMessage(
+                "assistant",
+                data.reply || "(empty reply)",
+                metaLine(data)
+            );
+            input.value = "";
+            setStatus("");
+        }).catch(function (error) {
+            setStatus("Error: " + (error && error.message
+                ? error.message : "Please try again."));
+        }).finally(function () {
+            setBusy(false);
+            input.focus();
+        });
+    });
+
+    // Show the default mode description immediately, not only after a
+    // first mode switch (false: no session could exist yet).
+    updateModeLabel(false);
+    setStatus("Ready. Every message stays on this machine.");
 })();
 </script>
 

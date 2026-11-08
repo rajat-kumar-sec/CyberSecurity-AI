@@ -7,3 +7,4 @@ logs/*.json
 app_v*.py
 data/vectorstore/
 data/model_cache/
+data/defense/

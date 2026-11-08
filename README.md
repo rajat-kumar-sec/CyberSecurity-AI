@@ -8,6 +8,14 @@ machine-learning model.
 
 > Local, lightweight, and offline-friendly: no external services required.
 
+> **Scope and safety.** CyberGuard AI is a student/portfolio defensive
+> assistant, **not** an enterprise EDR, an antivirus replacement or a fully
+> autonomous security platform. The privileged Windows helper is a prototype:
+> it is **disabled by default**, has **not** been validated on a real Windows
+> host, and is **not approved for production deployment**. Real firewall
+> changes require a separate human approval and a verified helper installation.
+> See [docs/windows-vm-testing.md](docs/windows-vm-testing.md).
+
 ## Features
 
 - **Rule-based threat detection** for five threat categories plus benign traffic:
@@ -38,9 +46,20 @@ machine-learning model.
 - **Batch log-file analysis**: upload a `.log`/`.txt` file and get per-line
   verdicts plus a threat/risk summary, from the dashboard or `POST /api/batch`.
   The file is read in memory, never saved
+- **Guarded Windows defensive actions (prototype, disabled by default)**: read-only process,
+  connection and firewall inspection, plus preview → explicit per-action
+  approval → one-shot UAC execution for CyberGuard-owned firewall rules. The
+  elevation adapter is disabled by default, approvals are single-use and
+  expiring, every outcome is audited, and there is no process termination or
+  automatic blocking. See
+  [Defensive actions](#defensive-actions-windows-per-action-approval)
 - **SOC-style dashboard**: dark-UI web interface with risk-level colour coding
+  and dedicated Security Overview, Threat Detection, Network Activity, Firewall
+  Status, Defensive Action History and Assistant Chat sections. Network and
+  firewall panels are read-only and run only on demand; unavailable data is
+  labelled instead of invented
 - **REST API** (`POST /api/analyze`, `POST /api/retrieve`, `POST /api/assistant`,
-  `POST /api/batch`) for programmatic use
+  `POST /api/batch`, `/api/defense/*`) for programmatic use
 - **JSON + console reports**: structured output saved to `logs/latest_report.json`
 
 ## Project Architecture
@@ -64,16 +83,35 @@ CyberSecurity-AI/
 │   ├── evaluate.py         # Recall@3, Recall@5, MRR evaluation
 │   ├── context.py          # App-facing retrieval context (Step 4)
 │   └── assistant.py        # Grounded context supply + optional local LLM (Step 5)
+├── defense/                # Guarded defensive actions (standard library only)
+│   ├── models.py           # Typed actions, approvals, results, audit events
+│   ├── registry.py         # Fixed allowlist of seven actions (no plugins)
+│   ├── policy.py           # Fail-closed parameter validation and rule naming
+│   ├── approvals.py        # In-memory action store + single-use approval store
+│   ├── executor.py         # Preview → approve → execute → verify → audit
+│   ├── audit.py            # Append-only JSONL history (git-ignored)
+│   ├── rollback.py         # Inverse-action preparation with ownership checks
+│   ├── service.py          # Facade used by app.py
+│   └── windows/            # Windows-only layer (lazily imported)
+│       ├── security.py     # ACL, reparse-point, atomic-write helpers
+│       ├── inspection.py   # Fixed-argv tasklist / netstat / netsh reads
+│       ├── firewall.py     # Fixed-argv netsh rules + ownership registry
+│       └── elevated.py     # One-shot HMAC-signed UAC helper
+├── docs/
+│   ├── architecture.md     # Mermaid architecture + trust boundaries
+│   ├── windows-vm-testing.md  # Privileged validation procedure (not executed)
+│   └── performance.md      # Measured startup/retrieval/batch/memory results
 ├── ingest_knowledge.py     # Idempotent knowledge-base ingestion CLI
 ├── requirements.txt        # Flask, scikit-learn, joblib (core only)
 ├── rag/requirements.txt    # Isolated RAG dependencies (never merged into core)
 ├── templates/
 │   └── index.html          # Dashboard UI (rendered by Flask)
-├── tests/                  # pytest: analyzer, API, RAG, retrieval, integration
+├── tests/                  # pytest: analyzer, API, RAG, retrieval, defense
 ├── data/
 │   ├── knowledge/          # 5 curated knowledge-base text files
 │   ├── eval/               # Retrieval evaluation dataset (24 queries)
 │   ├── vectorstore/        # Generated Chroma store (git-ignored)
+│   ├── defense/            # Audit, rule ownership, secret (git-ignored)
 │   └── ml/                 # Labelled training data (CSV)
 ├── models/
 │   └── threat_classifier.joblib   # Trained + calibrated pipeline
@@ -106,6 +144,9 @@ context** block — hybrid BM25 + embedding search over the same knowledge base.
 This is purely additive: `analyzer.py` is untouched, the exact-name reference is
 still attached, and if the optional RAG packages or the vector store are
 missing, retrieval is reported as unavailable instead of failing the request.
+
+For the full component diagram, request sequences and trust boundaries, see
+[docs/architecture.md](docs/architecture.md).
 
 ## Setup
 
@@ -151,6 +192,20 @@ core analyzer never depends on the retrieval stack.
 python app.py
 # open http://127.0.0.1:5000 , paste a log, click "Analyze Security Log"
 ```
+
+The dashboard is organised into six sections:
+
+| Section | Behaviour |
+| --- | --- |
+| Security Overview | Analysis status, detected threat/risk, last analysis metadata and local readiness. Unavailable data is labelled. |
+| Threat Detection | Rule findings, ML prediction/confidence (with an explicit "not confirmation" caveat), evidence, recommendations and retrieved knowledge. |
+| Network Activity | On-demand, read-only `netstat -ano` snapshot (PID only; no process-name resolution). |
+| Firewall Status | On-demand, read-only Domain/Private/Public profile state; raw text when parsing fails. |
+| Defensive Action History | Read-only audit history including approval, elevation and unknown/unverified outcomes. |
+| Assistant Chat | Grounded Q&A; advisory only, no approval or execution capability. |
+
+The server binds to `127.0.0.1` by default and refuses to bind the defensive API
+to a public interface by accident.
 
 ### CLI analyzer
 
@@ -342,6 +397,218 @@ python batch.py logs\auth.log --limit 1000
 Measured on the reference laptop: **200 lines in 3.6–4.3 s** (roughly 18–21 ms
 per line, including one scikit-learn prediction per line).
 
+### Defensive actions (Windows, per-action approval)
+
+This is a deliberately small, explicit and conservative prototype of the
+defensive-actions subsystem. It is **not production-approved**, and the
+privileged helper has not been validated on a real Windows host. The threat
+analyzer may *recommend* an action; it can never approve or execute one. Every
+state-changing action requires a separate preview, a separate human approval and
+a separate execute request. See
+[docs/windows-vm-testing.md](docs/windows-vm-testing.md) for the procedure that
+must pass before elevation is considered safe.
+
+#### Supported actions (fixed allowlist)
+
+| Action | Changes state | Admin | Notes |
+|---|---|---|---|
+| `list_processes` | no | no | fixed `tasklist /FO CSV /NH` (resolved via `%SystemRoot%\System32`) |
+| `list_network_connections` | no | no | fixed `netstat -ano` (resolved via `%SystemRoot%\System32`) |
+| `get_firewall_status` | no | no | fixed `netsh advfirewall show allprofiles state` (resolved via `%SystemRoot%\System32`) |
+| `generate_incident_report` | no | no | in-memory only; writes no file |
+| `preview_firewall_block_rule` | no | no | shows the exact rule that would be created |
+| `create_firewall_block_rule` | yes | **yes** | one CyberGuard-owned block rule |
+| `remove_cyberguard_firewall_rule` | yes | **yes** | only recorded CyberGuard rules |
+
+Unknown action types are rejected. No request field accepts a command string,
+executable path, shell fragment or PowerShell text. Process termination and
+Defender/antivirus/firewall disabling are **not implemented**.
+
+#### Workflow and API
+
+The defensive API is a **loopback-only approval surface**, not a public web API.
+Every `/api/defense/*` request must come from `127.0.0.1`/`::1`, carry an
+allowed loopback `Host`, and state-changing requests need a session-bound CSRF
+token. The dashboard handles this automatically. For `curl`, bootstrap a session
+first and send the returned token:
+
+```powershell
+# 0. Bootstrap CSRF: save the cookie and read csrf_token/csrf_header
+curl.exe -c cookies.txt http://127.0.0.1:5000/api/defense/status
+# csrf_token is in the JSON response; csrf_header is X-CyberGuard-CSRF
+```
+
+```bash
+# 1. Read-only inspection (no approval needed)
+curl -X POST http://127.0.0.1:5000/api/defense/inspect ^
+     -H "Content-Type: application/json" ^
+     -H "X-CyberGuard-CSRF: <csrf_token>" ^
+     -d "{\"action_type\": \"list_processes\", \"params\": {\"limit\": 25}}"
+
+# 2. Prepare an exact, non-executed action -> returns action_id + preview
+curl -X POST http://127.0.0.1:5000/api/defense/actions/preview ^
+     -H "Content-Type: application/json" ^
+     -d "{\"action_type\": \"create_firewall_block_rule\", \"params\": {\"remote_address\": \"203.0.113.7\", \"local_port\": 22, \"protocol\": \"tcp\", \"profile\": \"any\", \"lifetime_minutes\": 30}}"
+
+# 3. Explicit approval -> returns a single-use token exactly once
+curl -X POST http://127.0.0.1:5000/api/defense/actions/<action_id>/approve ^
+     -H "Content-Type: application/json" ^
+     -d "{\"confirm\": \"create_firewall_block_rule\"}"
+
+# 4. Execute the approved action exactly once
+curl -X POST http://127.0.0.1:5000/api/defense/actions/<action_id>/execute ^
+     -H "Content-Type: application/json" ^
+     -d "{\"approval_token\": \"<token>\"}"
+
+# Optional: cancel, prepare rollback, read audit
+curl -X POST http://127.0.0.1:5000/api/defense/actions/<action_id>/cancel
+curl -X POST http://127.0.0.1:5000/api/defense/actions/<action_id>/rollback
+curl "http://127.0.0.1:5000/api/defense/audit?limit=25"
+```
+
+`GET /api/defense/status` reports capabilities, platform, elevation state,
+active rule count and known limitations. There is no endpoint that executes an
+action merely because a client sends an action type and parameters, and there
+is no write/delete endpoint for the audit log.
+
+All state-changing requests return structured errors with a stable
+`error_category`, for example `approval_required`, `approval_invalid`,
+`approval_expired`, `approval_used`, `already_executed`, `action_cancelled`,
+`action_expired`, `elevation_disabled`, `helper_untrusted`, `uac_cancelled`,
+`uac_denied`, `execution_unknown`, `unsupported_os`, `csrf_required`,
+`host_rejected`, `origin_rejected`, `request_too_large` and `rate_limited`.
+
+The API refuses bodies larger than 64 KiB, non-finite JSON numbers, non-loopback
+clients, non-loopback `Host` values and cross-origin/cross-site browser
+requests. These controls reduce cross-site forgery and DNS-rebinding risk; they
+are **not** OS-level authentication and are not proof that a human is physically
+present.
+
+#### Approval model
+
+* An approval is bound to the exact action id, action type, canonical parameter
+  hash and expiry (5 minutes).
+* The token is unpredictable, stored only as a SHA-256 hash, and consumed
+  atomically before anything runs. Replay, a second execution and a stale token
+  are rejected.
+* Changing any parameter after approval invalidates it.
+* Cancelling an action revokes its approval permanently.
+* Prepared actions expire after 15 minutes. Both stores are process-local, so a
+  server restart invalidates every pending action and approval (fail closed).
+* The approval token is returned once to the caller and never written to the
+  audit log or rendered in the dashboard.
+
+#### One-shot UAC hand-off (disabled by default)
+
+State-changing actions never run in the Flask process. The executor writes one
+signed request file and launches one short-lived helper with the Windows `runas`
+verb:
+
+```text
+<protected-python.exe> -I -m defense.windows.elevated --request <32-hex-nonce>.json
+```
+
+The helper is launched in Python isolated mode (`-I`: no user site, no
+`PYTHONPATH`, no script-directory injection) with an absolute interpreter and an
+administrator-protected working directory. It independently verifies:
+
+* that it is elevated;
+* that the request path is inside the request directory, is a regular
+  single-link file and is not a symlink/junction/reparse point;
+* that the HMAC-SHA256 signature, nonce, issue time and expiry are valid;
+* that the action type and parameters revalidate to the same canonical values;
+* that a persistent per-nonce consumption marker has not already been used;
+* for removals, that CyberGuard's own validated record still owns the exact rule
+  identity.
+
+It then runs only a fixed `netsh` argv list with `shell=False`, verifies the
+resulting rule's important properties, and writes a signed result. A timeout is
+reported as `execution_unknown`; it is never converted into success or a
+definitive failure and is never retried automatically.
+
+**Elevation stays disabled unless a genuinely administrator-protected helper
+installation can be verified.** A repository checkout, an ordinary virtual
+environment and a bare absolute path are not trusted. Set all of:
+
+```powershell
+# Only after installing the code and interpreter in an administrator-only root
+$env:CYBERGUARD_DEFENSE_HELPER_ROOT = "C:\ProgramData\CyberGuard\helper"
+$env:CYBERGUARD_DEFENSE_DIR      = "C:\ProgramData\CyberGuard\data"
+$env:CYBERGUARD_DEFENSE_ELEVATION = "1"
+python app.py
+```
+
+The helper root must be absolute, contain both `sys.executable` and
+`defense/windows/elevated.py`, and the root, interpreter and module must all
+pass an **admin-only** DACL check (only `SYSTEM` and `Administrators`; the
+interactive user is not granted access). The HMAC key must already exist with
+exactly 32 bytes and a verified restricted ACL; an existing empty, short,
+oversized or ACL-unverified key is rejected and never regenerated.
+
+Without `CYBERGUARD_DEFENSE_ELEVATION=1`, preview/approval/audit still work and
+execution honestly returns `elevation_disabled`. With it set but an untrusted
+installation, execution returns `helper_untrusted` instead of running. The Flask
+server is never elevated, and no permanent Windows service or background admin
+process is created.
+
+#### Storage, audit and rollback
+
+`data/defense/` is git-ignored and can be relocated with
+`CYBERGUARD_DEFENSE_DIR`. It contains:
+
+| File | Purpose |
+|---|---|
+| `audit.jsonl` | append-only, sanitized audit history (rotated at 2 MiB) |
+| `rules.json` | CyberGuard's own validated record of the rules it created |
+| `secret.key` | per-install 32-byte HMAC key for the UAC hand-off |
+| `requests/` | transient signed one-shot requests |
+| `consumed/` | persistent per-nonce replay markers |
+
+On Windows, the data directory and secret use a restricted DACL (current user,
+`SYSTEM`, `Administrators`). This protects against other standard users but
+**not** against malware running as the same interactive user.
+
+The audit log records the timestamp, action id/type, target, a whitelisted
+parameter summary, approval outcome, execution outcome, error category and
+rollback status. Tokens, passwords and free-form notes/descriptions are dropped
+before writing. The dashboard only reads the newest 25 events and marks the
+listing as truncated when older events exist. The audit file is append-only
+through the application, but it is **not tamper-proof**: a local administrator
+or same-user process can edit or delete it outside CyberGuard.
+
+Rollback is **preparation only**: it creates the inverse action (remove a rule
+it created, or re-create a rule it removed with the recorded original
+parameters) that must go through its own preview/approve/execute cycle.
+Rollback is refused when CyberGuard cannot positively identify the rule, the
+action that owns it and the exact canonical parameters. A corrupt ownership
+registry is fail-closed: it is reported and never silently replaced.
+
+#### Limitations
+
+* Windows Firewall has no native rule TTL. `lifetime_minutes` is validated and
+  recorded, and the audit/status expose it, but an expired rule remains until
+  it is removed (there is no background janitor). The dashboard says this
+  explicitly.
+* Removal is limited to rules with the `CyberGuard-` prefix that also exist in
+  `rules.json`; unrelated firewall rules are never touched.
+* Read-only inspection and UAC execution are Windows-only. On other platforms
+  they return `unsupported_os` instead of guessing.
+* The audit log is append-only through the application, but it is a local
+  user-owned file: the owning user or a local administrator can alter it.
+* There is no automatic remediation, no automatic IP blocking and no process
+  termination.
+* Same-user processes can still tamper with CyberGuard's user-owned data
+  directory. The HMAC hand-off protects the request/result protocol, not the
+  whole host.
+* The CSRF/loopback/Host/Origin checks are not OS-level authentication and do
+  not prove physical user presence; the explicit approval step remains a
+  procedural control.
+* Localized `netsh` output that cannot be parsed is reported as
+  `unsupported_firewall_output` rather than guessed.
+* Real Windows validation of ACLs, reparse/junction/hardlink behaviour,
+  PATH/module hijacking, UAC and localized `netsh` output still requires a
+  dedicated Windows VM test pass; the automated suite mocks all of it.
+
 ### Retraining the model
 
 ```bash
@@ -459,9 +726,18 @@ Covers: the rule engine (all categories), evidence extraction, ML fusion
 output shape, JSON report writing, the Flask dashboard and API (including
 error handling), knowledge retrieval (including unknown-threat fallback),
 chunking/embedding/store ingestion, BM25/vector/hybrid retrieval and
-evaluation metrics, the retrieval integration layer, the grounded assistant and
-batch log-file analysis, and opt-in conversation memory - 252 tests, with
-RAG-dependent tests skipping cleanly when the optional packages are absent.
+evaluation metrics, the retrieval integration layer, the grounded assistant,
+batch log-file analysis, opt-in conversation memory, dashboard sections and
+safe-rendering conventions, single-log input bounds, assistant output safety
+(command-like model output is refused), and the defensive-actions subsystem
+(typed models, fail-closed policy, approval binding/replay/expiry, executor,
+audit sanitization, Windows inspection/firewall/UAC hand-off and the defense
+API) - **648 tests**, with RAG-dependent tests skipping cleanly when the
+optional packages are absent. Nothing in the suite touches the real Windows
+Firewall: every command and every elevation is mocked.
+
+Latest recorded run: **648 passed, 31 warnings** (third-party NumPy/joblib
+deprecations). `python -m compileall -q defense app.py tests` is clean.
 
 ## Roadmap
 
@@ -480,10 +756,41 @@ RAG-dependent tests skipping cleanly when the optional packages are absent.
    `python batch.py <file>` analyse a file line by line with the same engine,
    summarise threats/risks, and cap work per request (200 lines by default,
    hard cap 2000) so a large file cannot stall the app.
-5. **Carefully controlled defensive actions** — strict allowlist, explicit
-   human confirmation, full audit logging, dry-run mode first.
+5. **Carefully controlled defensive actions** — **prototype, not
+   production-approved**: fixed seven-action allowlist, preview → explicit
+   per-action approval → one-shot HMAC-signed UAC helper for CyberGuard-owned
+   firewall rules, fail-closed parameter validation, append-only sanitized audit
+   and ownership-checked rollback preparation. Process termination and
+   automatic blocking remain intentionally out of scope; the elevation adapter
+   is disabled by default, the Flask server is never elevated, and real Windows
+   validation is still required (see
+   [docs/windows-vm-testing.md](docs/windows-vm-testing.md)).
+6. **Broader evaluation and deployment hardening** — not started: a larger,
+   template-grouped ML dataset, real-Windows ACL/UAC validation, and
+   multi-process concurrency testing.
 
 ## Security Disclaimer
 
-This project is for defensive, educational purposes. Detection quality depends
-heavily on log format; always verify findings manually before acting.
+This project is for defensive, educational and portfolio purposes.
+
+- It is **not** an enterprise EDR, an antivirus replacement, a SIEM, or a fully
+  autonomous security platform.
+- Detection quality depends heavily on log format and on the small training
+  dataset. ML confidence is not proof of an attack.
+- The grounded assistant is advisory only. It cannot approve or execute an
+  action, and command-like model output is rejected.
+- The Windows privileged helper is a **prototype that has not been validated on
+  a real Windows host**. Do not enable `CYBERGUARD_DEFENSE_ELEVATION` on a
+  production or daily-use machine.
+- Real firewall changes require a separate preview, explicit human approval and
+  a verified helper installation. `lifetime_minutes` is recorded but does not
+  remove a rule automatically.
+- Windows Defender, antivirus and Windows Firewall are never disabled by this
+  project.
+- Always verify findings manually before acting.
+
+Additional documentation:
+
+- [Architecture and trust boundaries](docs/architecture.md)
+- [Windows VM testing procedure](docs/windows-vm-testing.md)
+- [Measured performance](docs/performance.md)

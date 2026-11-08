@@ -13,5 +13,7 @@ Implemented:
 The dashboard also has a single-turn chat panel (templates/index.html) on top
 of Step 5, with opt-in, browser-owned memory across turns.
 
-Planned (not implemented): carefully controlled defensive actions.
+Defensive actions live in the separate ``defense`` package (not here): a fixed
+allowlist, per-action approval, one-shot UAC helper and append-only audit log.
+The RAG layer never approves or executes an action.
 """

@@ -32,6 +32,7 @@ the same as before: system + current analysis/question.
 
 import json
 import os
+import re
 import urllib.error
 import urllib.request
 
@@ -63,8 +64,31 @@ SYSTEM_PROMPT = (
 )
 
 
+# Output-side safety net. The prompt already forbids commands, but a local
+# model can be prompt-injected or simply ignore instructions. Any answer that
+# looks like a shell/command block is refused and replaced by the deterministic
+# answer, so the chat surface never becomes a command generator.
+_UNSAFE_COMMAND_RE = re.compile(
+    r"(?im)^\s*(?:```|powershell(?:\.exe)?\b|pwsh\b|cmd(?:\.exe)?\b|"
+    r"netsh\b|reg(?:\.exe)?\b|sc(?:\.exe)?\b|wmic\b|schtasks\b|"
+    r"taskkill\b|rm\b|del\b|rmdir\b|remove-item\b|stop-process\b|"
+    r"new-netfirewallrule\b|set-netfirewallprofile\b|"
+    r"invoke-expression\b|iex\b|curl\b|wget\b|chmod\b|sudo\b|"
+    r"apt(?:-get)?\b|pip\s+install\b|python\s+-c\b)"
+)
+
+
 class HistoryError(ValueError):
     """Raised when supplied conversation history is not acceptable."""
+
+
+def answer_looks_like_commands(text):
+    """True when an LLM answer contains a line that looks executable.
+
+    This is intentionally conservative: a false positive only means the user
+    receives the deterministic, grounded summary instead of model prose.
+    """
+    return bool(_UNSAFE_COMMAND_RE.search(str(text or "")))
 
 
 def normalise_history(history):
@@ -262,6 +286,15 @@ def deterministic_answer(analysis, passages, question=None, history=None):
         if isinstance(confidence, (int, float)):
             suffix = f" ({float(confidence) * 100:.1f}% confidence)"
         lines.append(f"ML model: {fields['ml_prediction']}{suffix}.")
+        lines.append(
+            "The ML prediction is probabilistic and is not confirmation of "
+            "an attack; treat it as one signal among the evidence."
+        )
+
+    lines.append(
+        "Risk level is a rule-based assessment for triage, not a guarantee "
+        "about the affected host."
+    )
 
     evidence = _evidence_text(fields)
     if evidence:
@@ -281,6 +314,11 @@ def deterministic_answer(analysis, passages, question=None, history=None):
             "No relevant knowledge passages were retrieved for this log."
         )
 
+    lines.append(
+        "This assistant is advisory only: it cannot approve, execute or "
+        "change system settings. A human analyst must verify findings and "
+        "approve any defensive action separately."
+    )
     lines.append(
         "(Deterministic summary - no language model was used.)"
     )
@@ -360,6 +398,12 @@ class OllamaProvider:
         if not content.strip():
             raise RuntimeError("local model returned an empty response")
 
+        if answer_looks_like_commands(content):
+            raise RuntimeError(
+                "local model returned command-like content; refusing to show "
+                "executable instructions"
+            )
+
         return {
             "answer": content.strip(),
             "provider": self.name,
@@ -431,4 +475,9 @@ def explain(analysis, passages=None, question=None, provider=None, history=None)
         "history_used": len(history),
         "citations": citations(passages),
         "grounded_on": len(passages),
+        # The assistant is a read-only explanation surface. These flags make
+        # that contract explicit for the UI and future integrations.
+        "advisory_only": True,
+        "can_approve": False,
+        "can_execute": False,
     }

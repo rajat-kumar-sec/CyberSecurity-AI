@@ -5,6 +5,11 @@ Nothing here talks to the internet, and no model is bundled or downloaded.
 
 Providers
 ---------
+Provider implementations (the deterministic and Ollama classes, the Ollama
+HTTP transport and the selection registry) live in :mod:`rag.providers` and
+are re-exported below so every existing import keeps working: this module
+remains the public façade for the grounded assistant layer.
+
 deterministic (default)
     Composes an answer directly from the analysis result and the retrieved
     knowledge passages. No model, no network, no extra dependency, instant.
@@ -30,15 +35,8 @@ history and decides when to forget it. With no ``history`` the prompt is exactly
 the same as before: system + current analysis/question.
 """
 
-import json
-import os
 import re
-import urllib.error
-import urllib.request
 
-DEFAULT_OLLAMA_URL = "http://127.0.0.1:11434"
-DEFAULT_OLLAMA_MODEL = "qwen2.5:1.5b"
-DEFAULT_TIMEOUT = 60
 MAX_QUESTION_CHARS = 2000
 
 # Conversation history is bounded so a long chat cannot grow the prompt without
@@ -46,10 +44,6 @@ MAX_QUESTION_CHARS = 2000
 MAX_HISTORY_MESSAGES = 8
 MAX_HISTORY_MESSAGE_CHARS = 2000
 MAX_HISTORY_TOTAL_CHARS = 8000
-
-PROVIDER_ENV = "CYBERGUARD_LLM_PROVIDER"
-MODEL_ENV = "CYBERGUARD_LLM_MODEL"
-OLLAMA_URL_ENV = "CYBERGUARD_OLLAMA_URL"
 
 SYSTEM_PROMPT = (
     "You are a defensive cybersecurity assistant inside a local SOC tool. "
@@ -257,7 +251,7 @@ def citations(passages):
     return result
 
 
-# ------------------------------------------------------------------ providers
+# ------------------------------------------------------- deterministic summary
 
 def deterministic_answer(analysis, passages, question=None, history=None):
     """Compose a grounded summary without any language model."""
@@ -325,105 +319,47 @@ def deterministic_answer(analysis, passages, question=None, history=None):
     return "\n".join(lines)
 
 
-class DeterministicProvider:
-    """Default provider: instant, offline, no model."""
+def deterministic_chat_reply(messages=None):
+    """Honest fallback reply when no conversational model is available.
 
-    name = "deterministic"
-
-    def answer(self, analysis, passages, question=None, history=None, **_):
-        return {
-            "answer": deterministic_answer(
-                analysis, passages, question, history=history
-            ),
-            "provider": self.name,
-            "model": None,
-            "error": None,
-        }
-
-
-def _post_json(url, payload, timeout):
-    """Minimal stdlib JSON POST (no requests dependency)."""
-    body = json.dumps(payload).encode("utf-8")
-    request = urllib.request.Request(
-        url,
-        data=body,
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-    with urllib.request.urlopen(request, timeout=timeout) as response:
-        return json.loads(response.read().decode("utf-8"))
-
-
-class OllamaProvider:
-    """Optional local-LLM provider talking to an Ollama server on localhost."""
-
-    name = "ollama"
-
-    def __init__(self, model=None, base_url=None, timeout=DEFAULT_TIMEOUT,
-                 transport=None):
-        self.model = model or os.environ.get(MODEL_ENV) or DEFAULT_OLLAMA_MODEL
-        self.base_url = (
-            base_url
-            or os.environ.get(OLLAMA_URL_ENV)
-            or DEFAULT_OLLAMA_URL
-        ).rstrip("/")
-        self.timeout = timeout
-        self._transport = transport or _post_json
-
-    def answer(self, analysis, passages, question=None, history=None, **_):
-        payload = {
-            "model": self.model,
-            "messages": build_messages(
-                analysis, passages, question, history=history
-            ),
-            "stream": False,
-            # Small context window keeps memory use predictable on 8 GB machines.
-            "options": {"temperature": 0.2, "num_ctx": 2048},
-        }
-
-        try:
-            data = self._transport(
-                f"{self.base_url}/api/chat", payload, self.timeout
-            )
-        except urllib.error.URLError as exc:
-            raise RuntimeError(
-                f"local model server unavailable at {self.base_url}: {exc}"
-            ) from exc
-        except OSError as exc:
-            raise RuntimeError(
-                f"local model server unavailable at {self.base_url}: {exc}"
-            ) from exc
-
-        content = ((data or {}).get("message") or {}).get("content") or ""
-        if not content.strip():
-            raise RuntimeError("local model returned an empty response")
-
-        if answer_looks_like_commands(content):
-            raise RuntimeError(
-                "local model returned command-like content; refusing to show "
-                "executable instructions"
-            )
-
-        return {
-            "answer": content.strip(),
-            "provider": self.name,
-            "model": self.model,
-            "error": None,
-        }
-
-
-def get_provider(name=None):
-    """Resolve a provider from an explicit name or the environment.
-
-    Anything unrecognised resolves to the deterministic provider: a bad
-    environment variable must never break analysis.
+    Uses no model and no network. It deliberately does not *pretend* to
+    converse: it says plainly what is unavailable, echoes nothing back, and
+    never claims any knowledge, feeling or performed action.
     """
-    name = (name or os.environ.get(PROVIDER_ENV) or "deterministic")
-    name = str(name).strip().lower()
+    lines = [
+        "I can't hold a free-form conversation right now: no local language",
+        "model is available, so this is the built-in advisory fallback.",
+        "",
+        "Available right now, without any model:",
+        "- Analyze a pasted log and ask grounded questions about it.",
+        "- Review the security overview and the read-only dashboards.",
+        "",
+        "This assistant is advisory only: it cannot approve, execute or "
+        "change settings, and it never claims to have performed an action.",
+    ]
+    return "\n".join(lines)
 
-    if name == "ollama":
-        return OllamaProvider()
-    return DeterministicProvider()
+
+# ------------------------------------------------------------------ providers
+
+# Provider implementations moved to rag.providers so the Ollama transport, the
+# model configuration and the selection registry are decoupled from the
+# grounding layer. They are re-exported here to keep every existing import of
+# ``rag.assistant`` working (this module stays the public façade). This import
+# is safe at module scope because rag.providers never imports rag.assistant at
+# load time: the grounding helpers are fetched lazily inside provider methods.
+from rag.providers import (  # noqa: E402  (façade re-export)
+    DEFAULT_OLLAMA_MODEL,
+    DEFAULT_OLLAMA_URL,
+    DEFAULT_TIMEOUT,
+    MODEL_ENV,
+    OLLAMA_URL_ENV,
+    PROVIDER_ENV,
+    DeterministicProvider,
+    OllamaProvider,
+    Provider,
+    get_provider,
+)
 
 
 # ---------------------------------------------------------------------- facade
@@ -477,6 +413,76 @@ def explain(analysis, passages=None, question=None, provider=None, history=None)
         "grounded_on": len(passages),
         # The assistant is a read-only explanation surface. These flags make
         # that contract explicit for the UI and future integrations.
+        "advisory_only": True,
+        "can_approve": False,
+        "can_execute": False,
+    }
+
+
+def explain_chat(text, system_prompt, history=None, provider=None):
+    """Produce an advisory chat reply with a deterministic fallback.
+
+    This is the conversation-mode counterpart of :func:`explain`: instead of
+    analysis + passages it composes over a session's system prompt (from
+    :mod:`rag.prompts`) and its bounded earlier turns, and never raises.
+
+    ``system_prompt`` is the resolved mode prompt for the session.
+    ``history`` should already be validated and bounded (the conversation
+    manager hands out exactly that); it is normalised again here as a final
+    guard. The user's ``text`` and every history turn are untrusted content:
+    they are placed in the prompt as conversation, never as instructions.
+
+    ``provider`` may be a provider instance or a name; ``None`` honours the
+    environment. On provider failure the deterministic chat reply is
+    returned and ``error`` records a *sanitised* reason: provider-generated
+    ``RuntimeError`` messages are user-facing by design (e.g. "local model
+    server unavailable"); any other exception is reduced to its type name so
+    internal details can never leak into an API response.
+
+    Returns::
+
+        {reply, provider, model, error, available,
+         advisory_only: True, can_approve: False, can_execute: False}
+    """
+    if not isinstance(text, str) or not text.strip():
+        raise ValueError("chat text must be a non-empty string.")
+    if not isinstance(system_prompt, str) or not system_prompt.strip():
+        raise ValueError("system prompt must be a non-empty string.")
+
+    text = text.strip()
+    history = normalise_history(history)
+    messages = [
+        {"role": "system", "content": system_prompt},
+        *history,
+        {"role": "user", "content": text},
+    ]
+
+    if isinstance(provider, str):
+        provider = get_provider(provider)
+    if provider is None:
+        provider = get_provider()
+
+    fallback_reason = None
+    try:
+        result = provider.reply(messages)
+    except Exception as exc:
+        # RuntimeErrors come from this project's own provider gateways and
+        # are safe, user-facing messages; anything else is too internal to
+        # show, so only the exception type is reported.
+        fallback_reason = (
+            str(exc) if isinstance(exc, RuntimeError)
+            else f"{type(exc).__name__} from provider"
+        )
+        result = DeterministicProvider().reply(messages)
+
+    return {
+        "reply": result.get("answer", ""),
+        "provider": result.get("provider", "deterministic"),
+        "model": result.get("model"),
+        "error": fallback_reason,
+        "available": True,
+        # Same read-only advisory contract as explain(): the chat surface can
+        # never approve, execute or claim a defensive action.
         "advisory_only": True,
         "can_approve": False,
         "can_execute": False,

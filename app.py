@@ -21,15 +21,38 @@ from rag.assistant import (
     MAX_QUESTION_CHARS,
     HistoryError,
     explain as explain_analysis,
+    explain_chat,
+    get_provider,
     normalise_history,
 )
 from rag.context import DEFAULT_TOP_K, VALID_MODES, build_context
+from rag.conversation import (
+    ConversationManager,
+    InvalidMessageError,
+    SessionError,
+)
+from rag.prompts import get_system_prompt
 
 app = Flask(__name__)
 
 # One process-local service. It performs no I/O until an endpoint is used, so
 # importing the app stays cheap and side-effect free.
 defense_service = DefenseService()
+
+# ---------------------------------------------------------------- chat safety
+# The chat surface is advisory-only conversation: it never imports or calls
+# the defense package, has no approval or execution capability and never
+# suggests that any action was performed. Sessions are process-local, bounded
+# and TTL-expired like the approval stores (fail-closed): a restart forgets
+# every conversation, and no conversation is ever written to disk.
+#
+# The defense CSRF guard stays scoped to /api/defense/* because that is the
+# only surface that can change real system state; the chat route instead
+# rejects clearly cross-origin browser requests (same policy, without the
+# token, since the token protects privileged state changes).
+MAX_CHAT_MESSAGE_CHARS = MAX_QUESTION_CHARS
+
+chat_sessions = ConversationManager()
 
 MAX_QUERY_CHARS = 4000
 # A single pasted log is bounded well below the global 2 MiB request limit so
@@ -191,7 +214,10 @@ def _defense_request_guard():
 
 @app.after_request
 def _defense_security_headers(response):
-    if request.path.startswith(DEFENSE_PREFIX) or request.path == "/":
+    if (
+        request.path.startswith(DEFENSE_PREFIX)
+        or request.path in ("/", "/api/chat")
+    ):
         response.headers["Cache-Control"] = "no-store"
         response.headers["Pragma"] = "no-cache"
         response.headers["X-Content-Type-Options"] = "nosniff"
@@ -306,6 +332,19 @@ def _log_input_error(log):
         return "Log must be a non-empty string."
     if len(log) > MAX_LOG_CHARS:
         return f"Log must be at most {MAX_LOG_CHARS} characters."
+    return None
+
+
+def _chat_message_error(message):
+    """Return a user-facing validation error, or None when usable."""
+    if not isinstance(message, str):
+        return "Message must be a string."
+    if not message.strip():
+        return "Message must be a non-empty string."
+    if len(message) > MAX_CHAT_MESSAGE_CHARS:
+        return (
+            f"Message must be at most {MAX_CHAT_MESSAGE_CHARS} characters."
+        )
     return None
 
 
@@ -516,6 +555,154 @@ def api_assistant():
         "analysis": result,
         "retrieved_context": context,
         "assistant": assistant,
+    })
+
+
+@app.route("/api/chat", methods=["POST"])
+def api_chat():
+    """Advisory conversational endpoint -- a log is *not* required.
+
+    Body::
+
+        {"message": "required text",
+         "session_id": "optional; continue this conversation",
+         "mode": "companion" | "security",   # when starting (or matching)
+         "provider": "deterministic" | "ollama"}
+
+    A new session gets the prompt registry's safe default mode when
+    ``mode`` is omitted (``security``). Continuing a session needs only
+    ``message`` and ``session_id``; the session's stored mode governs, and
+    a differing ``mode`` argument is rejected rather than silently switched.
+
+    The reply comes from the selected provider over the session prompt and
+    bounded history, under the same never-fail, advisory-only contract as
+    ``/api/assistant``: provider problems degrade to the deterministic chat
+    reply (HTTP stays 200, reason reported in ``error``) and internal
+    exception details never leak into the response. History is snapshotted
+    before the current user turn is stored, so the provider receives prior
+    turns plus the current message -- the security/restriction rules live
+    in the mode prompts and the shared unsafe-command output filter.
+    """
+    data = request.get_json(silent=True)
+
+    if not data or "message" not in data:
+        return jsonify({
+            "error": "Please provide a 'message' field."
+        }), 400
+
+    message = data["message"]
+    message_error = _chat_message_error(message)
+
+    if message_error:
+        return jsonify({"error": message_error}), 400
+
+    provider_name = data.get("provider")
+
+    if provider_name is not None and provider_name not in (
+        "deterministic", "ollama"
+    ):
+        return jsonify({
+            "error": "provider must be one of: deterministic, ollama."
+        }), 400
+
+    mode = data.get("mode")
+
+    if mode is not None:
+        if not isinstance(mode, str):
+            return jsonify({"error": "mode must be a string."}), 400
+        try:
+            get_system_prompt(mode)
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 400
+
+    session_id = data.get("session_id")
+
+    if session_id is not None and not isinstance(session_id, str):
+        return jsonify({"error": "session_id must be a string."}), 400
+
+    # Same cross-origin policy as the defense API (shared helper): explicit
+    # cross-origin browser requests are refused; curl and same-origin
+    # clients are unaffected. No CSRF token here: the chat endpoint changes
+    # no system state.
+    origin = request.headers.get("Origin")
+    if origin and not _origin_allowed(origin):
+        return jsonify({
+            "error": "Cross-origin requests are not allowed for the chat API."
+        }), 403
+
+    new_session = session_id is None
+
+    try:
+        if new_session:
+            # Only reachable after every validation above, so malformed or
+            # rejected requests never create a session.
+            session_id = chat_sessions.start_session(mode)
+            session_mode = chat_sessions.mode(session_id)
+            system_prompt = chat_sessions.system_prompt(session_id)
+            history_before = []
+        else:
+            session_mode = chat_sessions.mode(session_id)
+            if mode is not None and str(mode).strip().lower() != session_mode:
+                return jsonify({
+                    "error": (
+                        "This session already uses the "
+                        f"'{session_mode}' mode; a conversation cannot "
+                        "switch modes."
+                    )
+                }), 400
+            system_prompt = chat_sessions.system_prompt(session_id)
+            history_before = chat_sessions.history(session_id)
+    except SessionError:
+        return jsonify({
+            "error": (
+                "Unknown or expired conversation session. Send the request "
+                "without 'session_id' to start a new conversation."
+            )
+        }), 404
+
+    try:
+        chat_sessions.add_message(session_id, "user", message)
+    except SessionError:
+        return jsonify({
+            "error": (
+                "Unknown or expired conversation session. Send the request "
+                "without 'session_id' to start a new conversation."
+            )
+        }), 404
+
+    try:
+        result = explain_chat(
+            message,
+            system_prompt,
+            history=history_before,
+            provider=get_provider(provider_name),
+        )
+
+        # Store the assistant turn best-effort: storage caps apply, and a
+        # store problem must never fail a reply that was already produced.
+        try:
+            chat_sessions.add_message(session_id, "assistant",
+                                      result["reply"])
+        except (SessionError, InvalidMessageError):
+            pass
+    except Exception:
+        app.logger.exception("Chat request failed")
+        return jsonify({
+            "error": "The chat request could not be completed."
+        }), 500
+
+    return jsonify({
+        "session_id": session_id,
+        "mode": session_mode,
+        "reply": result["reply"],
+        "provider": result["provider"],
+        "model": result["model"],
+        "error": result["error"],
+        "new_session": new_session,
+        "history_used": len(history_before),
+        "advisory_only": True,
+        "can_approve": False,
+        "can_execute": False,
     })
 
 

@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}CyberGuard AI — SOC Dashboard{% endblock %}</title>
+
+    <link rel="stylesheet"
+        href="{{ url_for('static', filename='css/design-system.css') }}">
+    <link rel="stylesheet"
+        href="{{ url_for('static', filename='css/app.css') }}">
+</head>
+
+<body>
+    <div class="app">
+
+        <aside class="sidebar" id="cg-sidebar" aria-label="Main navigation">
+
+            <div class="brand">
+                <span class="brand-mark" aria-hidden="true">🛡️</span>
+                <span>
+                    <span class="brand-name">CyberGuard AI</span>
+                    <span class="brand-sub">SOC Dashboard 2.0</span>
+                </span>
+            </div>
+
+            <nav class="nav">
+                <div class="nav-heading">Operations</div>
+
+                <button type="button" class="nav-item" data-page="overview">
+                    <span class="nav-icon" aria-hidden="true">▤</span>
+                    Overview
+                </button>
+
+                <button type="button" class="nav-item" data-page="log-analysis">
+                    <span class="nav-icon" aria-hidden="true">📝</span>
+                    Log Analysis
+                </button>
+
+                <button type="button" class="nav-item" data-page="analytics">
+                    <span class="nav-icon" aria-hidden="true">📊</span>
+                    Threat Analytics
+                </button>
+
+                <button type="button" class="nav-item" data-page="monitoring">
+                    <span class="nav-icon" aria-hidden="true">🖥️</span>
+                    Event Monitoring
+                </button>
+
+                <div class="nav-heading">Defense</div>
+
+                <button type="button" class="nav-item" data-page="defense">
+                    <span class="nav-icon" aria-hidden="true">🛡️</span>
+                    Defense Actions
+                </button>
+
+                <button type="button" class="nav-item" data-page="audit">
+                    <span class="nav-icon" aria-hidden="true">🗂️</span>
+                    Audit History
+                </button>
+
+                <div class="nav-heading">AI</div>
+
+                <button type="button" class="nav-item" data-page="assistant">
+                    <span class="nav-icon" aria-hidden="true">💬</span>
+                    AI Security Assistant
+                </button>
+
+                <button type="button" class="nav-item" data-page="companion">
+                    <span class="nav-icon" aria-hidden="true">🤖</span>
+                    AI Companion
+                </button>
+
+                <div class="nav-heading">Application</div>
+
+                <button type="button" class="nav-item" data-page="settings">
+                    <span class="nav-icon" aria-hidden="true">⚙️</span>
+                    Settings
+                </button>
+
+                <button type="button" class="nav-item" data-page="about">
+                    <span class="nav-icon" aria-hidden="true">ℹ️</span>
+                    About CyberGuard
+                </button>
+            </nav>
+
+            <div class="sidebar-footer">
+                Local-only · advisory-only AI · no telemetry
+            </div>
+
+        </aside>
+
+        <div class="main-area">
+
+            <header class="topbar">
+
+                <button type="button" class="menu-toggle" id="cg-menu-toggle"
+                    aria-expanded="false" aria-controls="cg-sidebar"
+                    aria-label="Toggle navigation">☰</button>
+
+                <span class="topbar-title" id="topbar-title">Overview</span>
+                <span class="topbar-sub">{{ request.host }}</span>
+
+                <span class="topbar-spacer"></span>
+
+                <span class="status-pills">
+                    <span class="status-pill">
+                        <span class="status-dot ok" aria-hidden="true"></span>
+                        Local session
+                    </span>
+                    <span class="status-pill">
+                        <span class="status-dot" id="topbar-rag-dot"
+                            aria-hidden="true"></span>
+                        {% if context and context.available %}
+                        Knowledge base: online
+                        {% else %}
+                        Knowledge base: available on demand
+                        {% endif %}
+                    </span>
+                    <span class="status-pill">Advisory-only AI</span>
+                </span>
+
+            </header>
+
+            <main class="content" id="cg-content">
+                {% block content %}{% endblock %}
+            </main>
+
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/analysis-assistant.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/companion-chat.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/batch.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/defense.js') }}"></script>
+</body>
+</html>

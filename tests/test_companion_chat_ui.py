@@ -1,14 +1,21 @@
-"""Frontend integration tests for the companion chat UI (Step 5).
+"""Frontend integration tests for the companion chat UI (Stage 2).
 
 These follow the dashboard-sections convention: they inspect the rendered
-HTML and the JavaScript conventions the UI relies on; they never execute
+HTML and the extracted static companion-chat module; they never execute
 JavaScript and never touch a real model or network.
 """
+
+from pathlib import Path
 
 import pytest
 
 import app as app_module
 
+
+STATIC_JS_DIR = Path(app_module.__file__).resolve().parent / "static" / "js"
+STATIC_CSS_DIR = (
+    Path(app_module.__file__).resolve().parent / "static" / "css"
+)
 
 CC_SCRIPT_START = 'var root = document.getElementById("companion-chat")'
 
@@ -35,15 +42,22 @@ def html_without_log():
         yield client.get("/").get_data(as_text=True)
 
 
-def companion_script(html):
-    """Return the companion-chat script block only (never the defense JS)."""
-    start = html.find(CC_SCRIPT_START)
-    assert start != -1, "companion chat script missing from the page"
+def companion_script():
+    """Return the companion-chat script only (never the defense JS)."""
+    source = (STATIC_JS_DIR / "companion-chat.js").read_text(
+        encoding="utf-8"
+    )
+    start = source.find(CC_SCRIPT_START)
+    assert start != -1, "companion chat script missing from the module"
 
-    end = html.find("<script>", start)
-    assert end != -1, "companion chat script is not terminated"
+    return source
 
-    return html[start:end]
+
+def companion_style():
+    return "\n".join(
+        (STATIC_CSS_DIR / name).read_text(encoding="utf-8")
+        for name in ("design-system.css", "app.css")
+    )
 
 
 def test_companion_chat_is_always_present_without_a_log(html_without_log):
@@ -76,7 +90,7 @@ def test_both_modes_are_offered_and_companion_is_default(html_without_log):
 
 
 def test_mode_switch_never_silently_keeps_a_session(html_without_log):
-    script = companion_script(html_without_log)
+    script = companion_script()
 
     assert "activeMode = mode;" in script
     assert "Mode changed - started a new conversation." in script
@@ -84,7 +98,7 @@ def test_mode_switch_never_silently_keeps_a_session(html_without_log):
 
 
 def test_mode_label_is_initialised_on_load(html_without_log):
-    script = companion_script(html_without_log)
+    script = companion_script()
 
     # The default (companion) mode description is rendered at startup,
     # not only after the user first clicks a mode.
@@ -96,7 +110,7 @@ def test_mode_label_is_initialised_on_load(html_without_log):
 
 
 def test_chat_posts_to_api_chat_with_session_continuation(html_without_log):
-    script = companion_script(html_without_log)
+    script = companion_script()
 
     assert 'fetch("/api/chat"' in script
     assert "message: text, mode: activeMode" in script
@@ -106,7 +120,7 @@ def test_chat_posts_to_api_chat_with_session_continuation(html_without_log):
 
 
 def test_new_chat_resets_the_session(html_without_log):
-    script = companion_script(html_without_log)
+    script = companion_script()
 
     assert 'id="cc-new-chat"' in html_without_log
     assert "function resetConversation()" in script
@@ -115,7 +129,7 @@ def test_new_chat_resets_the_session(html_without_log):
 
 
 def test_expired_and_missing_sessions_are_handled(html_without_log):
-    script = companion_script(html_without_log)
+    script = companion_script()
 
     assert "result.status === 404" in script
     assert "The conversation expired. A fresh one is ready" in script
@@ -124,7 +138,7 @@ def test_expired_and_missing_sessions_are_handled(html_without_log):
 
 def test_input_supports_enter_to_send_and_shift_enter_for_newline(
         html_without_log):
-    script = companion_script(html_without_log)
+    script = companion_script()
 
     assert 'event.key === "Enter" && !event.shiftKey' in script
     assert "event.preventDefault()" in script
@@ -132,7 +146,7 @@ def test_input_supports_enter_to_send_and_shift_enter_for_newline(
 
 
 def test_duplicate_submissions_are_prevented(html_without_log):
-    script = companion_script(html_without_log)
+    script = companion_script()
 
     assert "if (busy) {" in script
     assert "sendButton.disabled = pending;" in script
@@ -142,7 +156,7 @@ def test_duplicate_submissions_are_prevented(html_without_log):
 
 
 def test_all_messages_are_rendered_with_textcontent(html_without_log):
-    script = companion_script(html_without_log)
+    script = companion_script()
 
     assert "bubble.textContent = text;" in script
     assert "note.textContent = meta;" in script
@@ -154,15 +168,10 @@ def test_all_messages_are_rendered_with_textcontent(html_without_log):
 
 
 def test_no_client_side_persistence(html_without_log):
-    script = companion_script(html_without_log)
-    # Scope strictly to the companion-chat section: it ends where the next
-    # section (network activity) begins. Later scripts (defense panel etc.)
-    # legitimately use other storage and are covered by their own tests.
-    section_start = html_without_log.find('id="companion-chat"')
-    section_end = html_without_log.find('id="network-activity"')
-    assert section_start != -1 and section_end != -1 and section_end > section_start
-    root_html = html_without_log[section_start:section_end]
-    full = script + root_html
+    script = companion_script()
+    # The whole rendered page is scanned together with the module: storage
+    # APIs must not appear in either surface of the companion feature.
+    full = script + html_without_log
 
     assert "localStorage" not in full
     assert "sessionStorage" not in full
@@ -171,7 +180,7 @@ def test_no_client_side_persistence(html_without_log):
 
 
 def test_companion_script_never_reaches_defense_actions(html_without_log):
-    script = companion_script(html_without_log)
+    script = companion_script()
 
     # No route to the privileged surface and no execution machinery.
     for marker in ("/api/defense", "defen", "subprocess", "eval("):
@@ -183,7 +192,7 @@ def test_advisory_only_message_is_visible_to_users(html_without_log):
 
 
 def test_honest_provider_display_no_fake_llm_status(html_without_log):
-    script = companion_script(html_without_log)
+    script = companion_script()
 
     # The meta line shows the real provider (e.g. deterministic) rather
     # than inventing a model status.
@@ -206,9 +215,17 @@ def test_existing_log_chat_panel_is_untouched(html_with_log, html_without_log):
 
 
 def test_responsive_and_visual_structure_present(html_without_log):
-    # Layout elements the CSS relies on.
+    # Layout elements the CSS relies on stay in the page markup.
     assert 'class="cc-toolbar"' in html_without_log
     assert 'class="cc-actions"' in html_without_log
-    assert "cc-bubble" in html_without_log
-    assert "@media (max-width: 700px)" in html_without_log
-    assert "cc-pulse" in html_without_log
+
+    # Bubble classes are created by the extracted module...
+    script = companion_script()
+    assert "cc-bubble" in script
+    assert "cc-thinking" in script
+
+    # ...and the responsive breakpoint plus pulse animation live in the
+    # extracted stylesheet.
+    css = companion_style()
+    assert "@media (max-width: 900px)" in css
+    assert ".cc-thinking" in css

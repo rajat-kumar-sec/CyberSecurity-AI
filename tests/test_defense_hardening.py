@@ -23,6 +23,12 @@ import app as app_module
 from defense import policy
 from defense.approvals import ActionStore, ApprovalStore, RateLimiter
 from defense.audit import AuditLog
+
+
+DEFENSE_JS = (
+    Path(app_module.__file__).resolve().parent
+    / "static" / "js" / "defense.js"
+)
 from defense.models import (
     ActionExpired,
     ActionLimitExceeded,
@@ -1168,9 +1174,11 @@ def test_dashboard_states_the_lifetime_and_unknown_limitations(api):
     client, _ = api
 
     html = client.get("/").get_data(as_text=True)
+    defense_js = DEFENSE_JS.read_text(encoding="utf-8")
 
     assert "removed automatically" in html
-    assert "Execution outcome unknown" in html
+    # Failure-mode wording is rendered by the extracted defense module.
+    assert "Execution outcome unknown" in defense_js
     assert "Known limitations" in html
 
 

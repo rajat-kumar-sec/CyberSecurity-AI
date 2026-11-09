@@ -6,6 +6,7 @@ Windows command or firewall change can happen.
 """
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -17,6 +18,12 @@ from defense_support import (
     CsrfClient,
     FakeElevation,
     make_service,
+)
+
+
+DEFENSE_JS = (
+    Path(app_module.__file__).resolve().parent
+    / "static" / "js" / "defense.js"
 )
 
 
@@ -434,7 +441,8 @@ def test_dashboard_renders_the_defense_panel(client):
     html = response.get_data(as_text=True)
     assert "Defensive Actions" in html
     assert 'id="defense-panel"' in html
-    assert "Approve This Exact Action" in html
+    # The Approve button is created by the extracted defense module.
+    assert "Approve This Exact Action" in DEFENSE_JS.read_text(encoding="utf-8")
 
 
 # --------------------------------------------------------- request guards

@@ -1,0 +1,121 @@
+/* ============================================================
+   CyberGuard AI - Design System (Stage 2, SOC UI 2.0)
+   Tokens only: no selectors beyond variables/reset/typography.
+   ============================================================ */
+
+:root {
+    /* Palette (approved, evidence-backed) */
+    --bg: #0b1220;              /* page background */
+    --surface: #111827;         /* panels, cards, sidebar */
+    --surface-2: #0d1524;       /* inset areas, code blocks, wells */
+    --surface-3: #1a2333;       /* hover states, table rows */
+    --border: #1f2937;
+    --border-strong: #374151;
+
+    --text: #e5e7eb;
+    --text-strong: #f3f4f6;
+    --muted: #94a3b8;
+    --faint: #64748b;
+
+    --primary: #2563eb;
+    --primary-strong: #1d4ed8;
+    --primary-soft: rgba(37, 99, 235, 0.14);
+
+    --critical: #dc2626;
+    --critical-soft: rgba(220, 38, 38, 0.15);
+    --warning: #d97706;
+    --warning-soft: rgba(217, 119, 6, 0.15);
+    --healthy: #16a34a;
+    --healthy-soft: rgba(22, 163, 74, 0.15);
+
+    --on-primary: #ffffff;
+    --focus-ring: rgba(37, 99, 235, 0.55);
+
+    /* Typography */
+    --font: "Segoe UI", system-ui, -apple-system, "Helvetica Neue",
+        Arial, sans-serif;
+    --mono: Consolas, "Cascadia Mono", "Courier New", monospace;
+
+    /* Shape & rhythm (8px grid) */
+    --radius: 10px;
+    --radius-sm: 6px;
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-6: 24px;
+    --space-8: 32px;
+
+    /* Motion: subtle only */
+    --transition: 150ms ease;
+}
+
+/* ------------------------------------------------------------ reset */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+* {
+    margin: 0;
+}
+
+html {
+    height: 100%;
+}
+
+body {
+    min-height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 14px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+}
+
+img,
+svg {
+    display: block;
+    max-width: 100%;
+}
+
+h1,
+h2,
+h3 {
+    color: var(--text-strong);
+    line-height: 1.25;
+}
+
+a {
+    color: var(--primary);
+}
+
+code {
+    font-family: var(--mono);
+    font-size: 0.92em;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 5px;
+}
+
+pre {
+    font-family: var(--mono);
+}
+
+ul {
+    padding-left: 20px;
+}
+
+/* ------------------------------------------------- accessible focus */
+:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+    border-radius: 2px;
+}
+
+::selection {
+    background: var(--primary-soft);
+}

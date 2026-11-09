@@ -1,614 +1,22 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>CyberSecurity AI - SOC Dashboard</title>
-
-    <style>
-        body {
-            margin: 0;
-            font-family: Arial, sans-serif;
-            background: #0f172a;
-            color: #e5e7eb;
-        }
-
-        .header {
-            background: #111827;
-            padding: 25px;
-            text-align: center;
-            border-bottom: 1px solid #374151;
-        }
-
-        .header h1 {
-            margin: 0;
-        }
-
-        .header p {
-            color: #9ca3af;
-        }
-
-        .container {
-            max-width: 1100px;
-            margin: 30px auto;
-            padding: 20px;
-        }
-
-        textarea {
-            width: 100%;
-            height: 220px;
-            box-sizing: border-box;
-            padding: 15px;
-            background: #020617;
-            color: #e5e7eb;
-            border: 1px solid #374151;
-            border-radius: 8px;
-            font-size: 15px;
-            resize: vertical;
-        }
-
-        button {
-            margin-top: 15px;
-            padding: 12px 25px;
-            background: #2563eb;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            font-size: 16px;
-            cursor: pointer;
-        }
-
-        button:hover {
-            background: #1d4ed8;
-        }
-
-        .dashboard {
-            margin-top: 30px;
-        }
-
-        .cards {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 15px;
-        }
-
-        .card {
-            background: #1e293b;
-            padding: 20px;
-            border-radius: 8px;
-            border: 1px solid #334155;
-        }
-
-        .card-title {
-            color: #94a3b8;
-            font-size: 14px;
-        }
-
-        .card-value {
-            margin-top: 8px;
-            font-size: 22px;
-            font-weight: bold;
-        }
-
-        .risk-high {
-            color: #ef4444;
-        }
-
-        .risk-medium {
-            color: #f59e0b;
-        }
-
-        .risk-low {
-            color: #22c55e;
-        }
-
-        .passage {
-            border-top: 1px solid #334155;
-            padding-top: 12px;
-            margin-top: 12px;
-        }
-
-        .passage:first-of-type {
-            border-top: none;
-            margin-top: 0;
-            padding-top: 0;
-        }
-
-        .passage-head {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            align-items: baseline;
-            justify-content: space-between;
-        }
-
-        .passage-meta {
-            color: #94a3b8;
-            font-size: 12px;
-        }
-
-        .passage-text {
-            color: #cbd5e1;
-            font-size: 14px;
-            line-height: 1.5;
-            margin: 8px 0 0 0;
-        }
-
-        .hint {
-            color: #94a3b8;
-            font-size: 13px;
-        }
-
-        .summary-text {
-            color: #cbd5e1;
-            font-size: 14px;
-            line-height: 1.6;
-            white-space: pre-line;
-            margin: 10px 0 0 0;
-        }
-
-        #chat-form {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin-top: 12px;
-        }
-
-        #chat-question {
-            flex: 1 1 320px;
-            padding: 10px 12px;
-            background: #020617;
-            color: #e5e7eb;
-            border: 1px solid #374151;
-            border-radius: 6px;
-            font-size: 14px;
-        }
-
-        #chat-form button {
-            margin-top: 0;
-            padding: 10px 20px;
-            font-size: 14px;
-        }
-
-        #chat-form button:disabled {
-            background: #1e3a8a;
-            cursor: wait;
-        }
-
-        #chat-controls {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            gap: 14px;
-            margin-top: 12px;
-        }
-
-        #chat-controls label {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            color: #cbd5e1;
-            font-size: 13px;
-        }
-
-        #chat-controls input[type="checkbox"] {
-            width: 16px;
-            height: 16px;
-            accent-color: #2563eb;
-        }
-
-        #chat-clear {
-            margin-top: 0;
-            padding: 7px 14px;
-            font-size: 12px;
-            background: #1f2937;
-            border: 1px solid #374151;
-        }
-
-        #chat-clear:hover {
-            background: #334155;
-        }
-
-        .chat-msg {
-            margin-top: 12px;
-            padding: 10px 14px;
-            border-radius: 8px;
-            border: 1px solid #334155;
-            background: #0b1220;
-        }
-
-        .chat-user {
-            border-color: #1d4ed8;
-        }
-
-        .chat-text {
-            margin: 0;
-            white-space: pre-line;
-            font-size: 14px;
-            line-height: 1.55;
-            color: #e5e7eb;
-        }
-
-        .chat-meta {
-            margin: 8px 0 0 0;
-            color: #94a3b8;
-            font-size: 12px;
-        }
-
-        /* ---------------------------------------------- companion chat UI */
-
-        .cc-toolbar {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            gap: 10px;
-            margin-top: 14px;
-        }
-
-        .cc-mode {
-            margin-top: 0;
-            padding: 8px 16px;
-            font-size: 13px;
-            border-radius: 20px;
-            background: #1f2937;
-            border: 1px solid #374151;
-        }
-
-        .cc-mode:hover {
-            background: #334155;
-        }
-
-        .cc-mode.cc-active {
-            background: #2563eb;
-            border-color: #2563eb;
-        }
-
-        .cc-mode:disabled {
-            opacity: .6;
-            cursor: wait;
-        }
-
-        #cc-mode-label {
-            flex: 1 1 280px;
-            margin: 0;
-            color: #94a3b8;
-            font-size: 12px;
-        }
-
-        #cc-messages {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            margin-top: 14px;
-            max-height: 440px;
-            overflow-y: auto;
-            padding-right: 4px;
-        }
-
-        .cc-msg {
-            max-width: 85%;
-        }
-
-        .cc-msg-user {
-            align-self: flex-end;
-        }
-
-        .cc-msg-assistant {
-            align-self: flex-start;
-        }
-
-        .cc-bubble {
-            margin: 0;
-            padding: 12px 14px;
-            border-radius: 14px;
-            font-size: 14px;
-            line-height: 1.55;
-            white-space: pre-line;
-        }
-
-        .cc-msg-user .cc-bubble {
-            background: #1d4ed8;
-            color: #eff6ff;
-            border-bottom-right-radius: 4px;
-        }
-
-        .cc-msg-assistant .cc-bubble {
-            background: #0b1220;
-            border: 1px solid #334155;
-            color: #e5e7eb;
-            border-bottom-left-radius: 4px;
-        }
-
-        .cc-meta {
-            margin: 6px 0 0 0;
-            color: #94a3b8;
-            font-size: 11px;
-        }
-
-        #cc-form {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            margin-top: 14px;
-        }
-
-        #cc-input {
-            width: 100%;
-            box-sizing: border-box;
-            min-height: 64px;
-            max-height: 180px;
-            resize: vertical;
-            padding: 12px 14px;
-            background: #020617;
-            color: #e5e7eb;
-            border: 1px solid #374151;
-            border-radius: 12px;
-            font-size: 14px;
-            font-family: inherit;
-        }
-
-        .cc-actions {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-        }
-
-        .cc-actions button {
-            margin-top: 0;
-        }
-
-        #cc-send:disabled,
-        #cc-new-chat:disabled {
-            background: #1e3a8a;
-            cursor: wait;
-        }
-
-        #cc-new-chat {
-            background: #1f2937;
-            border: 1px solid #374151;
-            font-size: 13px;
-        }
-
-        #cc-new-chat:hover {
-            background: #334155;
-        }
-
-        #cc-status.cc-thinking {
-            animation: cc-pulse 1.2s ease-in-out infinite;
-        }
-
-        @keyframes cc-pulse {
-            0%, 100% { opacity: .55; }
-            50% { opacity: 1; }
-        }
-
-        @media (max-width: 700px) {
-            .cc-msg { max-width: 100%; }
-            #cc-messages { max-height: 360px; }
-        }
-
-        #batch-form {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            align-items: center;
-            margin-top: 12px;
-        }
-
-        #batch-file {
-            flex: 1 1 320px;
-            color: #cbd5e1;
-            font-size: 13px;
-        }
-
-        #batch-form button {
-            margin-top: 0;
-            padding: 10px 20px;
-            font-size: 14px;
-        }
-
-        #batch-form button:disabled {
-            background: #1e3a8a;
-            cursor: wait;
-        }
-
-        .batch-meta {
-            color: #cbd5e1;
-            font-size: 13px;
-            margin: 14px 0 0 0;
-        }
-
-        .batch-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 12px;
-            font-size: 13px;
-        }
-
-        .batch-table caption {
-            text-align: left;
-            color: #94a3b8;
-            font-size: 13px;
-            padding-bottom: 6px;
-        }
-
-        .batch-table th,
-        .batch-table td {
-            border-bottom: 1px solid #1f2937;
-            padding: 7px 9px;
-            text-align: left;
-            vertical-align: top;
-        }
-
-        .batch-table th {
-            color: #94a3b8;
-            font-weight: 600;
-            white-space: nowrap;
-        }
-
-        .batch-table td {
-            color: #e5e7eb;
-        }
-
-        .batch-snippet {
-            color: #cbd5e1;
-            word-break: break-word;
-        }
-
-        .section {
-            background: #1e293b;
-            margin-top: 20px;
-            padding: 20px;
-            border-radius: 8px;
-            border: 1px solid #334155;
-        }
-
-        li {
-            margin: 8px 0;
-        }
-
-        .defense-actions {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin-top: 12px;
-        }
-
-        .defense-actions button,
-        #defense-form button,
-        #defense-preview button,
-        #defense-result button {
-            margin-top: 0;
-            padding: 10px 18px;
-            font-size: 14px;
-        }
-
-        .defense-form {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 12px;
-            margin-top: 12px;
-        }
-
-        .defense-form label {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            color: #cbd5e1;
-            font-size: 13px;
-        }
-
-        .defense-form input,
-        .defense-form select {
-            padding: 9px 10px;
-            background: #020617;
-            color: #e5e7eb;
-            border: 1px solid #374151;
-            border-radius: 6px;
-            font-size: 14px;
-        }
-
-        .defense-form button {
-            grid-column: 1 / -1;
-            justify-self: start;
-        }
-
-        .badge {
-            display: inline-block;
-            padding: 2px 8px;
-            border-radius: 999px;
-            font-size: 12px;
-            font-weight: bold;
-        }
-
-        .badge-admin {
-            background: #7c2d12;
-            color: #fed7aa;
-        }
-
-        .badge-safe {
-            background: #14532d;
-            color: #bbf7d0;
-        }
-
-        .badge-risk {
-            background: #78350f;
-            color: #fde68a;
-        }
-
-        .defense-box {
-            background: #0f172a;
-            border: 1px solid #334155;
-            border-radius: 8px;
-            padding: 14px;
-            margin-top: 14px;
-        }
-
-        .defense-box h3 {
-            margin: 0 0 8px 0;
-        }
-
-        .defense-kv {
-            color: #cbd5e1;
-            font-size: 13px;
-            margin: 4px 0;
-        }
-
-        .defense-warning {
-            color: #fca5a5;
-            font-size: 13px;
-            margin: 4px 0;
-        }
-
-        .defense-ok {
-            color: #86efac;
-        }
-
-        .defense-fail {
-            color: #fca5a5;
-        }
-
-        pre.defense-json {
-            background: #020617;
-            border: 1px solid #1f2937;
-            border-radius: 6px;
-            padding: 10px;
-            overflow-x: auto;
-            font-size: 12px;
-            color: #cbd5e1;
-        }
-
-        @media (max-width: 700px) {
-            .cards {
-                grid-template-columns: 1fr;
-            }
-        }
-    </style>
-</head>
-
-<body>
-
-<div class="header">
-    <h1>🛡️ CyberSecurity AI</h1>
-    <p>SOC Analysis Dashboard</p>
-</div>
-
-<div class="container">
-
-    <h2>Security Log Analysis</h2>
-
-    <form method="POST">
-
-        <textarea name="log"
-            placeholder="Paste security logs here...">{{ log }}</textarea>
-
-        <br>
-
-        <button type="submit">Analyze Security Log</button>
-
-    </form>
-
-    {% if form_error %}
-    <p class="defense-fail" role="alert">{{ form_error }}</p>
-    {% endif %}
+{% extends "base.html" %}
+
+{% block content %}
+
+{# Server-rendered state for the shell controller (static/js/app.js).
+   Read-only snapshot of this request; nothing here is persisted. #}
+<script type="application/json" id="cg-state">{{ {
+    "has_result": result is not none,
+    "analyzed_at": analyzed_at,
+    "analysis_chars": analysis_chars,
+    "batch_limit": batch_limit,
+    "form_error": form_error,
+    "result": result
+} | tojson }}</script>
+
+<!-- ================================================== Overview = -->
+<div class="page active" id="page-overview">
+
+    <h2 class="page-title" id="page-title-overview" tabindex="-1">Overview</h2>
 
     <div class="section" id="security-overview">
 
@@ -618,16 +26,25 @@
 
             <div class="card">
                 <div class="card-title">ANALYSIS</div>
-                <div class="card-value">
+                <div class="card-value" id="ov-analysis-status">
                     {% if result %}Complete{% else %}Not run{% endif %}
+                </div>
+                <div class="card-sub" id="ov-when">
+                    {% if result %}
+                    Analyzed {{ analyzed_at or 'unknown' }} ·
+                    {{ analysis_chars }} characters · not persisted
+                    {% else %}
+                    No analysis stored in this page yet
+                    {% endif %}
                 </div>
             </div>
 
             <div class="card">
                 <div class="card-title">DETECTED THREAT</div>
-                <div class="card-value">
+                <div class="card-value" id="ov-threat">
                     {{ result.threat_type if result else '—' }}
                 </div>
+                <div class="card-sub">Rule-based classification</div>
             </div>
 
             <div class="card">
@@ -640,30 +57,66 @@
                     {% else %}
                         risk-low
                     {% endif %}
-                ">
+                " id="ov-risk">
                     {{ result.risk if result else '—' }}
                 </div>
+                <div class="card-sub">Triage label, not proof</div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">ML CONFIDENCE</div>
+                <div class="card-value" id="ov-confidence">
+                    {% if result %}{{ (result.ml_confidence * 100) | round(2) }}%{%
+                       else %}—{% endif %}
+                </div>
+                <div class="card-sub">Shown when a model prediction exists</div>
             </div>
 
         </div>
 
-        {% if result %}
-        <p>
-            <b>ML prediction:</b> {{ result.ml_prediction }}
-            ({{ (result.ml_confidence * 100) | round(2) }}% confidence).
-            This is a statistical prediction, not confirmation of an attack.
+        <p id="ov-ml-note" class="hint">
+            {% if result %}
+            ML prediction: {{ result.ml_prediction }} — a statistical
+            prediction, not a confirmation of an attack.
+            {% endif %}
         </p>
-        <p>
-            <b>Recent analysis:</b> {{ analyzed_at or 'unknown' }} ·
-            {{ analysis_chars }} characters analysed. Activity is not
-            persisted; reloading the page clears it.
-        </p>
-        {% else %}
-        <p class="hint">
-            No analysis has been run in this page yet. Paste a security log
-            below to produce a rule-based and ML assessment.
-        </p>
-        {% endif %}
+
+        <div class="section">
+            <h3>Quick actions</h3>
+            <p class="hint">
+                Shortcuts to real workflows only; every panel below runs its
+                own honest checks.
+            </p>
+            <div class="defense-actions" role="group"
+                aria-label="Quick actions">
+                <button type="button" data-navigate="log-analysis">
+                    Analyze a log
+                </button>
+                <button type="button" data-navigate="monitoring">
+                    Run a batch analysis
+                </button>
+                <button type="button" data-navigate="defense">
+                    Preview a defense action
+                </button>
+                <button type="button" data-navigate="audit">
+                    Review audit history
+                </button>
+                <button type="button" data-navigate="assistant">
+                    Ask the AI assistant
+                </button>
+            </div>
+        </div>
+
+        <div class="chart-card" id="ov-severity-chart"></div>
+
+        <div class="section">
+            <h3>Recent events</h3>
+            <p class="hint">
+                Real results from this page session only (single-log analyses
+                and batch files). Nothing is fetched, stored or synthesised.
+            </p>
+            <div id="ov-recent-events"></div>
+        </div>
 
         <p id="overview-readiness" class="hint" role="status"
             aria-live="polite">Checking local inspection readiness...</p>
@@ -687,9 +140,38 @@
 
     </div>
 
+</div>
+
+<!-- ============================================= Log Analysis = -->
+<div class="page" id="page-log-analysis">
+
+    <h2 class="page-title" id="page-title-log-analysis" tabindex="-1">
+        Log Analysis
+    </h2>
+
+    <div class="section">
+
+        <form method="POST" class="analysis-form">
+
+            <label for="log-input">Security log to analyse</label>
+
+            <textarea id="log-input" name="log"
+                placeholder="Paste security logs here...">{{ log or '' }}</textarea>
+
+            <button type="submit">Analyze Security Log</button>
+
+        </form>
+
+        <p id="log-analysis-alert" class="defense-fail" role="alert">
+            {%- if form_error %}{{ form_error }}{% endif -%}
+        </p>
+
+    </div>
+
+    {# Result panels: rendered only when this request analysed a log. #}
     {% if result %}
 
-    <div class="dashboard" id="threat-detection">
+    <div class="section" id="threat-detection">
 
         <h2>🔎 Threat Detection</h2>
 
@@ -709,7 +191,6 @@
 
             <div class="card">
                 <div class="card-title">RISK LEVEL</div>
-
                 <div class="card-value
                     {% if result.risk == 'HIGH' %}
                         risk-high
@@ -860,109 +341,88 @@
 
         {% endif %}
 
-        <div class="section" id="assistant-chat" data-log="{{ log }}">
-
-            <h2>💬 Assistant Chat — Ask About This Analysis</h2>
-
-            <p class="hint">
-                Ask about this analysis. Answers are grounded in the analysis
-                above and the retrieved
-                knowledge passages, and generated locally. The assistant is
-                advisory only: it cannot approve or execute defensive actions.
-                Memory is off by default; nothing is stored on the server.
-            </p>
-
-            <form id="chat-form" autocomplete="off">
-
-                <input id="chat-question" type="text" maxlength="2000"
-                    placeholder="e.g. What should I check first?"
-                    aria-label="Question about this analysis">
-
-                <button type="submit" id="chat-send">Ask</button>
-
-            </form>
-
-            <div id="chat-controls">
-
-                <label>
-                    <input type="checkbox" id="chat-memory">
-                    Include earlier questions as context
-                </label>
-
-                <button type="button" id="chat-clear">Clear conversation</button>
-
-            </div>
-
-            <p class="hint">
-                Memory is optional and lives in this page only. When it is
-                ticked, the last few questions and answers are sent with the
-                next question. Clearing the conversation or reloading the page
-                forgets them; nothing is written to disk.
-            </p>
-
-            <p id="chat-status" class="hint" role="status" aria-live="polite"></p>
-
-            <div id="chat-transcript"></div>
-
-            <noscript>
-                <p class="hint">
-                    The chat panel needs JavaScript. You can call
-                    <code>POST /api/assistant</code> directly instead.
-                </p>
-            </noscript>
-
-        </div>
-
     </div>
 
     {% endif %}
 
-    <div class="section" id="companion-chat">
+</div>
 
-        <h2>🤖 Chat with CyberGuard</h2>
+<!-- =========================================== Threat Analytics = -->
+<div class="page" id="page-analytics">
+
+    <h2 class="page-title" id="page-title-analytics" tabindex="-1">
+        Threat Analytics
+    </h2>
+
+    <p class="page-desc">
+        Charts are built only from real results produced in this page session
+        (single-log analyses and batch files). When no data exists the charts
+        say so — nothing is pre-filled and nothing is invented.
+    </p>
+
+    <div class="chart-card" id="analytics-severity"></div>
+
+    <div class="chart-card" id="analytics-categories"></div>
+
+    <noscript>
+        <p class="hint">
+            The charts need JavaScript. The real data source is
+            <code>POST /api/analyze</code> and <code>POST /api/batch</code>.
+        </p>
+    </noscript>
+
+</div>
+
+<!-- ========================================== Event Monitoring = -->
+<div class="page" id="page-monitoring">
+
+    <h2 class="page-title" id="page-title-monitoring" tabindex="-1">
+        Event Monitoring
+    </h2>
+
+    <div class="section" id="event-monitoring-timeline">
+
+        <h2>🕒 Event Timeline</h2>
 
         <p class="hint">
-            A local, advisory-only assistant: everyday conversation, general
-            security questions and incident coaching. No log required. It
-            cannot approve, execute or claim to have performed any defensive
-            action. The conversation lives only in this page and in server
-            memory for this session: starting a new chat or reloading the
-            page forgets it.
+            Real results only — from single-log analyses and batch files
+            processed in this page session. Nothing is fetched from outside
+            the machine, nothing is stored and no events are invented.
         </p>
 
-        <div class="cc-toolbar" role="group" aria-label="Conversation mode">
+        <div id="event-timeline"></div>
 
-            <button type="button" id="cc-mode-companion" class="cc-mode cc-active"
-                data-mode="companion" aria-pressed="true">Companion</button>
+    </div>
 
-            <button type="button" id="cc-mode-security" class="cc-mode"
-                data-mode="security" aria-pressed="false">Security</button>
+    <div class="section" id="batch-panel">
 
-            <p id="cc-mode-label"></p>
+        <h2>📁 Batch Log File Analysis</h2>
 
-        </div>
+        <p class="hint">
+            Upload a <code>.log</code> or <code>.txt</code> file to analyse it
+            line by line. The file is read in memory only and never saved.
+            Files are limited to 1 MB and the first {{ batch_limit }} non-blank
+            lines are analysed, because every line runs a model prediction.
+        </p>
 
-        <div id="cc-messages" aria-live="polite"></div>
+        <form id="batch-form">
 
-        <form id="cc-form" autocomplete="off">
+            <input id="batch-file" type="file"
+                accept=".log,.txt,.csv,.json,text/plain"
+                aria-label="Log file to analyse">
 
-            <textarea id="cc-input" rows="2" maxlength="2000"
-                placeholder="Type a message (Enter sends it, Shift+Enter adds a newline)"
-                aria-label="Message to the assistant"></textarea>
-
-            <div class="cc-actions">
-                <button type="submit" id="cc-send">Send</button>
-                <button type="button" id="cc-new-chat">New chat</button>
-            </div>
+            <button type="submit" id="batch-send">Analyze File</button>
 
         </form>
 
-        <p id="cc-status" class="hint" role="status" aria-live="polite"></p>
+        <p id="batch-status" class="hint" role="status" aria-live="polite"></p>
+
+        <div id="batch-results"></div>
 
         <noscript>
             <p class="hint">
-                The chat panel needs JavaScript. You can call
-                <code>POST /api/chat</code> directly instead.
+                Batch analysis needs JavaScript. You can call
+                <code>POST /api/batch</code> with a file directly instead.
             </p>
         </noscript>
 
@@ -1036,39 +496,14 @@
 
     </div>
 
-    <div class="section" id="batch-panel">
+</div>
 
-        <h2>📁 Batch Log File Analysis</h2>
+<!-- ============================================ Defense Actions = -->
+<div class="page" id="page-defense">
 
-        <p class="hint">
-            Upload a <code>.log</code> or <code>.txt</code> file to analyse it
-            line by line. The file is read in memory only and never saved.
-            Files are limited to 1 MB and the first {{ batch_limit }} non-blank
-            lines are analysed, because every line runs a model prediction.
-        </p>
-
-        <form id="batch-form">
-
-            <input id="batch-file" type="file"
-                accept=".log,.txt,.csv,.json,text/plain"
-                aria-label="Log file to analyse">
-
-            <button type="submit" id="batch-send">Analyze File</button>
-
-        </form>
-
-        <p id="batch-status" class="hint" role="status" aria-live="polite"></p>
-
-        <div id="batch-results"></div>
-
-        <noscript>
-            <p class="hint">
-                Batch analysis needs JavaScript. You can call
-                <code>POST /api/batch</code> with a file directly instead.
-            </p>
-        </noscript>
-
-    </div>
+    <h2 class="page-title" id="page-title-defense" tabindex="-1">
+        Defense Actions
+    </h2>
 
     <div class="section" id="defense-panel">
 
@@ -1174,6 +609,15 @@
 
     </div>
 
+</div>
+
+<!-- ============================================== Audit History = -->
+<div class="page" id="page-audit">
+
+    <h2 class="page-title" id="page-title-audit" tabindex="-1">
+        Audit History
+    </h2>
+
     <div class="section" id="action-history">
 
         <h2>🗂️ Defensive Action History</h2>
@@ -1208,1352 +652,292 @@
 
 </div>
 
-<script>
-(function () {
-    "use strict";
-
-    var chat = document.getElementById("assistant-chat");
-    var form = document.getElementById("chat-form");
-    if (!chat || !form) {
-        return;
-    }
-
-    var input = document.getElementById("chat-question");
-    var button = document.getElementById("chat-send");
-    var status = document.getElementById("chat-status");
-    var transcript = document.getElementById("chat-transcript");
-    var memory = document.getElementById("chat-memory");
-    var clearButton = document.getElementById("chat-clear");
-
-    // Browser-owned conversation. Never persisted; cleared with the button or
-    // by reloading the page. Only sent when the user ticks the memory box.
-    var conversation = [];
-    var MAX_HISTORY_MESSAGES = 8;
-
-    function addMessage(role, text, meta) {
-        var wrapper = document.createElement("div");
-        wrapper.className = "chat-msg chat-" + role;
-
-        var bubble = document.createElement("p");
-        bubble.className = "chat-text";
-        // textContent (never innerHTML): knowledge-base text is untrusted.
-        bubble.textContent = text;
-        wrapper.appendChild(bubble);
-
-        if (meta) {
-            var note = document.createElement("p");
-            note.className = "chat-meta";
-            note.textContent = meta;
-            wrapper.appendChild(note);
-        }
-
-        transcript.appendChild(wrapper);
-
-        conversation.push({ role: role, content: text });
-        if (conversation.length > MAX_HISTORY_MESSAGES) {
-            conversation.splice(0, conversation.length - MAX_HISTORY_MESSAGES);
-        }
-    }
-
-    function buildMeta(assistant) {
-        var parts = ["provider: " + (assistant.provider || "unknown")];
-        if (assistant.model) {
-            parts.push("model: " + assistant.model);
-        }
-        if (assistant.history_used) {
-            parts.push("memory: " + assistant.history_used +
-                " earlier message(s)");
-        }
-        if (assistant.error) {
-            parts.push("fallback: " + assistant.error);
-        }
-        if (assistant.citations && assistant.citations.length) {
-            parts.push("sources: " + assistant.citations.map(function (citation) {
-                return "[" + citation.index + "] " + citation.category +
-                    " / " + citation.section;
-            }).join(", "));
-        }
-        return parts.join(" \u00b7 ");
-    }
-
-    clearButton.addEventListener("click", function () {
-        conversation = [];
-        transcript.textContent = "";
-        status.textContent = "Conversation cleared.";
-        input.focus();
-    });
-
-    form.addEventListener("submit", function (event) {
-        event.preventDefault();
-
-        var log = (chat.getAttribute("data-log") || "").trim();
-        var question = input.value.trim();
-
-        if (!log) {
-            status.textContent = "Analyze a log first, then ask a question.";
-            return;
-        }
-        if (!question) {
-            status.textContent = "Type a question first.";
-            return;
-        }
-
-        // Snapshot history before adding the current question: the API takes
-        // the new question separately.
-        var history = memory && memory.checked ? conversation.slice() : [];
-
-        addMessage("user", question);
-        input.value = "";
-        button.disabled = true;
-        status.textContent = "Thinking locally...";
-
-        var payload = { log: log, question: question };
-        if (history.length) {
-            payload.history = history;
-        }
-
-        fetch("/api/assistant", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-        }).then(function (response) {
-            return response.json().then(function (data) {
-                if (!response.ok) {
-                    throw new Error(data.error || "Request failed.");
-                }
-                return data;
-            });
-        }).then(function (data) {
-            var assistant = data.assistant || {};
-            addMessage(
-                "assistant",
-                assistant.answer || "(empty answer)",
-                buildMeta(assistant)
-            );
-            status.textContent = "";
-        }).catch(function (error) {
-            status.textContent = "Error: " + error.message;
-        }).finally(function () {
-            button.disabled = false;
-            input.focus();
-        });
-    });
-})();
-</script>
-
-<script>
-(function () {
-    "use strict";
-
-    var root = document.getElementById("companion-chat");
-    var form = document.getElementById("cc-form");
-    if (!root || !form) {
-        return;
-    }
-
-    var input = document.getElementById("cc-input");
-    var sendButton = document.getElementById("cc-send");
-    var newChatButton = document.getElementById("cc-new-chat");
-    var messages = document.getElementById("cc-messages");
-    var status = document.getElementById("cc-status");
-    var modeLabel = document.getElementById("cc-mode-label");
-    var modeButtons = [
-        document.getElementById("cc-mode-companion"),
-        document.getElementById("cc-mode-security")
-    ];
-
-    // Browser-owned conversation state. Nothing is persisted: the session id
-    // and the transcript live only in this page's memory and disappear on
-    // reload, "New chat", or server-side session expiry.
-    var sessionId = null;
-    var activeMode = "companion";
-    var busy = false;
-
-    var MODE_NOTES = {
-        companion: "Companion mode: everyday conversation, general security "
-            + "questions, empathetic replies.",
-        security: "Security mode: analysis coaching and formal, "
-            + "evidence-focused guidance. Use the Analyze panel for a "
-            + "specific log."
-    };
-
-    function setBusy(pending) {
-        busy = pending;
-        sendButton.disabled = pending;
-        newChatButton.disabled = pending;
-        status.classList.toggle("cc-thinking", pending);
-    }
-
-    function setStatus(text) {
-        status.textContent = text;
-    }
-
-    function clearMessages() {
-        while (messages.firstChild) {
-            messages.removeChild(messages.firstChild);
-        }
-    }
-
-    function appendMessage(role, text, meta) {
-        var wrapper = document.createElement("div");
-        wrapper.className = "cc-msg cc-msg-" + role;
-
-        var bubble = document.createElement("p");
-        bubble.className = "cc-bubble";
-        // textContent only: conversation text (user or model) is untrusted
-        // and must never be parsed as HTML.
-        bubble.textContent = text;
-        wrapper.appendChild(bubble);
-
-        if (meta) {
-            var note = document.createElement("p");
-            note.className = "cc-meta";
-            note.textContent = meta;
-            wrapper.appendChild(note);
-        }
-
-        messages.appendChild(wrapper);
-        messages.scrollTop = messages.scrollHeight;
-    }
-
-    function metaLine(data) {
-        var parts = [];
-        if (data.mode) {
-            parts.push("mode: " + data.mode);
-        }
-        if (data.provider) {
-            parts.push("provider: " + data.provider);
-        }
-        if (data.model) {
-            parts.push("model: " + data.model);
-        }
-        if (data.history_used) {
-            parts.push("context: " + data.history_used + " earlier turn(s)");
-        }
-        if (data.error) {
-            parts.push("fallback: " + data.error);
-        }
-        parts.push("advisory only - no actions taken");
-        return parts.join(" \u00b7 ");
-    }
-
-    function resetConversation() {
-        sessionId = null;
-        clearMessages();
-        setStatus("New conversation started. Nothing is stored.");
-    }
-
-    function updateModeLabel(clearedSession) {
-        modeLabel.textContent = MODE_NOTES[activeMode]
-            + " Selected mode: " + activeMode + ".";
-        if (clearedSession) {
-            // Never mix modes inside one session: switching starts fresh.
-            resetConversation();
-            setStatus("Mode changed - started a new conversation.");
-        }
-    }
-
-    function setMode(mode) {
-        if (busy || mode === activeMode) {
-            return;
-        }
-
-        var hadSession = sessionId !== null;
-        activeMode = mode;
-
-        for (var index = 0; index < modeButtons.length; index++) {
-            var button = modeButtons[index];
-            var pressed = button.getAttribute("data-mode") === mode;
-            button.classList.toggle("cc-active", pressed);
-            button.setAttribute("aria-pressed", pressed ? "true" : "false");
-        }
-
-        updateModeLabel(hadSession);
-    }
-
-    newChatButton.addEventListener("click", function () {
-        if (busy) {
-            return;
-        }
-        resetConversation();
-        input.focus();
-    });
-
-    for (var buttonIndex = 0; buttonIndex < modeButtons.length;
-         buttonIndex++) {
-        (function (button) {
-            button.addEventListener("click", function () {
-                setMode(button.getAttribute("data-mode"));
-            });
-        })(modeButtons[buttonIndex]);
-    }
-
-    input.addEventListener("keydown", function (event) {
-        // Enter sends, Shift+Enter inserts a newline (default behaviour).
-        if (event.key === "Enter" && !event.shiftKey) {
-            event.preventDefault();
-            if (!sendButton.disabled) {
-                if (form.requestSubmit) {
-                    form.requestSubmit();
-                } else {
-                    sendButton.click();
-                }
-            }
-        }
-    });
-
-    form.addEventListener("submit", function (event) {
-        event.preventDefault();
-
-        // Duplicate submissions are impossible while a request is pending:
-        // the guard and the disabled button are checked before sending.
-        if (busy) {
-            return;
-        }
-
-        var text = input.value.trim();
-        if (!text) {
-            setStatus("Type a message first.");
-            return;
-        }
-
-        setBusy(true);
-        setStatus("Preparing your response\u2026");
-
-        var payload = { message: text, mode: activeMode };
-        if (sessionId) {
-            payload.session_id = sessionId;
-        }
-
-        fetch("/api/chat", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-        }).then(function (response) {
-            return response.json().then(function (data) {
-                return { ok: response.ok, status: response.status, data: data };
-            });
-        }).then(function (result) {
-            var data = result.data || {};
-
-            if (!result.ok) {
-                var detail = data.error || "Request failed.";
-
-                if (result.status === 404) {
-                    // Session expired or ended server-side: forget it and
-                    // invite the user to try again in a fresh conversation.
-                    sessionId = null;
-                    clearMessages();
-                    setStatus(
-                        "The conversation expired. A fresh one is ready - "
-                        + "send your message again. (" + detail + ")"
-                    );
-                } else {
-                    setStatus("Error: " + detail);
-                }
-                return;
-            }
-
-            sessionId = data.session_id;
-            appendMessage("user", text);
-            appendMessage(
-                "assistant",
-                data.reply || "(empty reply)",
-                metaLine(data)
-            );
-            input.value = "";
-            setStatus("");
-        }).catch(function (error) {
-            setStatus("Error: " + (error && error.message
-                ? error.message : "Please try again."));
-        }).finally(function () {
-            setBusy(false);
-            input.focus();
-        });
-    });
-
-    // Show the default mode description immediately, not only after a
-    // first mode switch (false: no session could exist yet).
-    updateModeLabel(false);
-    setStatus("Ready. Every message stays on this machine.");
-})();
-</script>
-
-<script>
-(function () {
-    "use strict";
-
-    var form = document.getElementById("batch-form");
-    if (!form) {
-        return;
-    }
-
-    var input = document.getElementById("batch-file");
-    var button = document.getElementById("batch-send");
-    var status = document.getElementById("batch-status");
-    var results = document.getElementById("batch-results");
-
-    function el(tag, className, text) {
-        var node = document.createElement(tag);
-        if (className) {
-            node.className = className;
-        }
-        if (text !== undefined && text !== null) {
-            node.textContent = String(text);
-        }
-        return node;
-    }
-
-    function show(value) {
-        return (value === null || value === undefined || value === "") ? "—" : value;
-    }
-
-    function renderTable(caption, headers, rows, options) {
-        var snippetColumn = (options && options.snippetColumn) || -1;
-
-        var table = el("table", "batch-table");
-        table.appendChild(el("caption", null, caption));
-
-        var head = el("thead");
-        var headRow = el("tr");
-        headers.forEach(function (header) {
-            headRow.appendChild(el("th", null, header));
-        });
-        head.appendChild(headRow);
-        table.appendChild(head);
-
-        var body = el("tbody");
-        rows.forEach(function (row) {
-            var rowNode = el("tr");
-            row.forEach(function (cell, index) {
-                rowNode.appendChild(
-                    el("td", index === snippetColumn ? "batch-snippet" : null,
-                       show(cell))
-                );
-            });
-            body.appendChild(rowNode);
-        });
-        table.appendChild(body);
-
-        return table;
-    }
-
-    function describe(report) {
-        var parts = [];
-        parts.push(show(report.filename) + ": " +
-            report.lines_analyzed + " of " + report.lines_total +
-            " lines analysed");
-        parts.push(report.suspicious + " suspicious");
-        parts.push(report.benign + " benign");
-        parts.push((report.duration_ms / 1000).toFixed(1) + " s");
-
-        if (report.duplicates_collapsed) {
-            parts.push(report.duplicates_collapsed + " duplicate lines collapsed");
-        }
-        if (report.truncated) {
-            parts.push("truncated at " + report.limit + " lines");
-        }
-        if (report.error_count) {
-            parts.push(report.error_count + " line(s) failed to analyse");
-        }
-        return parts.join(" · ");
-    }
-
-    function render(report) {
-        results.textContent = "";
-
-        if (report.available === false) {
-            status.textContent = "Batch analysis failed: " +
-                (report.error || "unknown error");
-            return;
-        }
-
-        var meta = el("p", "batch-meta", describe(report));
-        results.appendChild(meta);
-
-        if (report.truncated) {
-            results.appendChild(el("p", "hint",
-                "Only the first " + report.limit + " non-blank lines were " +
-                "analysed. Split the file or raise " +
-                "CYBERGUARD_BATCH_MAX_LINES to cover more."));
-        }
-
-        if (report.threat_types.length) {
-            results.appendChild(renderTable(
-                "Threat types",
-                ["Threat type", "Lines"],
-                report.threat_types.map(function (row) {
-                    return [row.threat_type, row.count];
-                })
-            ));
-        }
-
-        if (report.risks.length) {
-            results.appendChild(renderTable(
-                "Risk levels",
-                ["Risk", "Lines"],
-                report.risks.map(function (row) {
-                    return [row.risk, row.count];
-                })
-            ));
-        }
-
-        if (report.samples.length) {
-            results.appendChild(renderTable(
-                "Suspicious lines (first " + report.samples.length + ")",
-                ["Line", "Threat", "Risk", "Source IP", "User", "Attempts",
-                 "Log line"],
-                report.samples.map(function (row) {
-                    return [row.line_number, row.threat_type, row.risk,
-                            row.source_ip, row.username, row.attempts,
-                            row.snippet];
-                }),
-                { snippetColumn: 6 }
-            ));
-
-            if (report.samples_truncated) {
-                results.appendChild(el("p", "hint",
-                    "Showing the first " + report.samples.length +
-                    " suspicious lines only."));
-            }
-        } else if (report.lines_analyzed) {
-            results.appendChild(el("p", "hint",
-                "No known threat pattern matched in this file."));
-        }
-
-        if (report.errors && report.errors.length) {
-            results.appendChild(renderTable(
-                "Lines that failed to analyse",
-                ["Error", "Log line"],
-                report.errors.map(function (row) {
-                    return [row.error, row.line];
-                }),
-                { snippetColumn: 1 }
-            ));
-        }
-
-        if (report.error) {
-            status.textContent = "Batch analysis failed: " + report.error;
-        }
-    }
-
-    form.addEventListener("submit", function (event) {
-        event.preventDefault();
-
-        var file = input.files && input.files[0];
-
-        if (!file) {
-            status.textContent = "Choose a log file first.";
-            return;
-        }
-
-        var body = new FormData();
-        body.append("file", file, file.name);
-
-        button.disabled = true;
-        status.textContent = "Analysing " + file.name + " locally...";
-        results.textContent = "";
-
-        fetch("/api/batch", { method: "POST", body: body })
-            .then(function (response) {
-                return response.json().then(function (data) {
-                    if (!response.ok) {
-                        throw new Error(data.error || "Request failed.");
-                    }
-                    return data;
-                });
-            })
-            .then(function (report) {
-                status.textContent = "";
-                render(report);
-            })
-            .catch(function (error) {
-                status.textContent = "Error: " + error.message;
-            })
-            .finally(function () {
-                button.disabled = false;
-            });
-    });
-})();
-</script>
-
-<script>
-(function () {
-    "use strict";
-
-    var panel = document.getElementById("defense-panel");
-    if (!panel) {
-        return;
-    }
-
-    var statusEl = document.getElementById("defense-status");
-    var inspectionBox = document.getElementById("defense-inspection");
-    var form = document.getElementById("defense-form");
-    var previewButton = document.getElementById("defense-preview-button");
-    var previewBox = document.getElementById("defense-preview");
-    var resultBox = document.getElementById("defense-result");
-    var auditBox = document.getElementById("defense-audit");
-    var auditStatus = document.getElementById("audit-status");
-    var overviewReadiness = document.getElementById("overview-readiness");
-    var networkBox = document.getElementById("network-results");
-    var networkStatus = document.getElementById("network-status");
-    var firewallBox = document.getElementById("firewall-status-results");
-    var firewallMessage = document.getElementById("firewall-status-message");
-
-    // The approval token lives only in this closure. It is never rendered,
-    // stored in the DOM or written to localStorage.
-    var currentAction = null;
-    var approvalToken = null;
-    var csrfToken = null;
-    var csrfHeader = "X-CyberGuard-CSRF";
-
-    function el(tag, className, text) {
-        var node = document.createElement(tag);
-        if (className) {
-            node.className = className;
-        }
-        if (text !== undefined && text !== null) {
-            node.textContent = String(text);
-        }
-        return node;
-    }
-
-    function clear(node) {
-        while (node.firstChild) {
-            node.removeChild(node.firstChild);
-        }
-    }
-
-    function badge(text, className) {
-        return el("span", "badge " + className, text);
-    }
-
-    function stateChanging(options) {
-        var method = (options && options.method) || "GET";
-        return method !== "GET" && method !== "HEAD" && method !== "OPTIONS";
-    }
-
-    function requestOnce(path, options) {
-        return fetch(path, options).then(function (response) {
-            return response.json().catch(function () {
-                return {};
-            }).then(function (data) {
-                if (!response.ok) {
-                    var error = new Error(
-                        data.error || ("Request failed (" + response.status + ").")
-                    );
-                    error.category = data.error_category || "";
-                    throw error;
-                }
-                return data;
-            });
-        });
-    }
-
-    function bootstrapCsrf() {
-        return fetch("/api/defense/status").then(function (response) {
-            return response.json();
-        }).then(function (data) {
-            csrfToken = data.csrf_token || csrfToken;
-            csrfHeader = data.csrf_header || csrfHeader;
-            return data;
-        });
-    }
-
-    function api(path, options) {
-        options = options || {};
-        if (stateChanging(options)) {
-            options.headers = Object.assign({}, options.headers || {});
-            if (csrfToken) {
-                options.headers[csrfHeader] = csrfToken;
-            }
-        }
-        return requestOnce(path, options).catch(function (error) {
-            if (error.category === "csrf_required" && stateChanging(options)) {
-                return bootstrapCsrf().then(function () {
-                    options.headers[csrfHeader] = csrfToken;
-                    return requestOnce(path, options);
-                });
-            }
-            throw error;
-        });
-    }
-
-    function showError(container, error) {
-        clear(container);
-        var box = el("div", "defense-box");
-        box.appendChild(el("p", "defense-fail",
-            "Request failed: " + (error.message || "unknown error")));
-        if (error.category) {
-            box.appendChild(el("p", "defense-kv",
-                "Error category: " + error.category));
-        }
-        container.appendChild(box);
-    }
-
-    function makeTable(caption, headers, rows) {
-        var table = el("table", "batch-table");
-        table.appendChild(el("caption", null, caption));
-
-        var head = el("thead");
-        var headRow = el("tr");
-        headers.forEach(function (header) {
-            headRow.appendChild(el("th", null, header));
-        });
-        head.appendChild(headRow);
-        table.appendChild(head);
-
-        var body = el("tbody");
-        rows.forEach(function (row) {
-            var tr = el("tr");
-            row.forEach(function (value) {
-                tr.appendChild(el("td", null,
-                    value === null || value === undefined ? "—" : value));
-            });
-            body.appendChild(tr);
-        });
-        table.appendChild(body);
-        return table;
-    }
-
-    // ------------------------------------------------------------ status
-
-    function loadStatus() {
-        return api("/api/defense/status").then(function (data) {
-            csrfToken = data.csrf_token || csrfToken;
-            csrfHeader = data.csrf_header || csrfHeader;
-
-            var elevation = data.elevation || {};
-            var registry = data.rules_registry || {};
-            var text = "Platform: " + data.platform +
-                " · Active CyberGuard rules: " + data.rules_active +
-                " · Audit events: " + data.audit.events +
-                " · Elevation: " +
-                (elevation.enabled ? "enabled" : "disabled") + ". ";
-            if (elevation.configured && !elevation.trusted) {
-                text += "Elevation is configured but refused. ";
-            }
-            if (registry.healthy === false) {
-                text += "Ownership registry problem: " +
-                    (registry.error || "invalid records") + " ";
-            }
-            statusEl.textContent = text + (elevation.detail || "");
-
-            if (overviewReadiness) {
-                overviewReadiness.textContent =
-                    "Local inspection readiness: platform " + data.platform +
-                    " · elevation " +
-                    (elevation.enabled ? "enabled" : "disabled") +
-                    " · " + data.rules_active +
-                    " active CyberGuard rule(s) · " + data.audit.events +
-                    " audit event(s). Process, connection and firewall " +
-                    "checks run only on demand.";
-            }
-
-            var limitationsBox = document.getElementById(
-                "defense-limitations"
-            );
-            if (limitationsBox) {
-                clear(limitationsBox);
-                limitationsBox.appendChild(el("h3", null,
-                    "Known limitations"));
-                (data.limitations || []).forEach(function (limitation) {
-                    limitationsBox.appendChild(el("p", "defense-warning",
-                        limitation));
-                });
-            }
-        }).catch(function (error) {
-            statusEl.textContent = "Status error: " + error.message;
-        });
-    }
-
-    // -------------------------------------------------------- inspection
-
-    function renderInspection(data) {
-        clear(inspectionBox);
-
-        if (!data.available) {
-            var failure = el("div", "defense-box");
-            failure.appendChild(el("p", "defense-fail",
-                data.error || "Inspection failed."));
-            if (data.error_category) {
-                failure.appendChild(el("p", "defense-kv",
-                    "Error category: " + data.error_category));
-            }
-            inspectionBox.appendChild(failure);
-            return;
-        }
-
-        var box = el("div", "defense-box");
-        box.appendChild(el("p", "defense-kv",
-            "Read-only result. No system state was changed."));
-
-        if (data.action_type === "list_processes") {
-            box.appendChild(makeTable(
-                "Processes (" + data.count + " shown)",
-                ["Name", "PID", "Session", "Memory"],
-                data.processes.map(function (row) {
-                    return [row.name, row.pid, row.session, row.memory];
-                })
-            ));
-        } else if (data.action_type === "list_network_connections") {
-            box.appendChild(makeTable(
-                "Connections (" + data.count + " shown)",
-                ["Protocol", "Local", "Remote", "State", "PID"],
-                data.connections.map(function (row) {
-                    return [row.protocol, row.local, row.remote,
-                        row.state, row.pid];
-                })
-            ));
-        } else if (data.action_type === "get_firewall_status") {
-            box.appendChild(makeTable(
-                "Firewall profiles",
-                ["Profile", "Enabled"],
-                data.profiles.map(function (row) {
-                    return [row.profile, row.enabled ? "ON" : "OFF"];
-                })
-            ));
-            if (!data.parsed) {
-                box.appendChild(el("p", "defense-warning",
-                    "The profile state could not be parsed; raw output is shown."));
-            }
-        } else {
-            box.appendChild(el("pre", "defense-json",
-                JSON.stringify(data, null, 2)));
-        }
-
-        inspectionBox.appendChild(box);
-    }
-
-    function runInspection(actionType, params) {
-        clear(inspectionBox);
-        inspectionBox.appendChild(el("p", "hint",
-            "Running a fixed read-only command..."));
-
-        api("/api/defense/inspect", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                action_type: actionType,
-                params: params || {}
-            })
-        }).then(renderInspection).catch(function (error) {
-            showError(inspectionBox, error);
-        });
-    }
-
-    document.getElementById("defense-refresh").addEventListener("click", loadStatus);
-    document.getElementById("defense-processes").addEventListener("click", function () {
-        runInspection("list_processes", { limit: 25 });
-    });
-
-    // ------------------------------------------- network activity section
-
-    function loadNetworkActivity() {
-        clear(networkBox);
-        networkStatus.textContent =
-            "Running the fixed read-only netstat command...";
-        networkBox.appendChild(el("p", "hint", "Loading snapshot..."));
-
-        api("/api/defense/inspect", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                action_type: "list_network_connections",
-                params: { limit: 100, protocol: "all" }
-            })
-        }).then(function (data) {
-            clear(networkBox);
-            networkStatus.textContent = "";
-
-            if (!data.available) {
-                networkBox.appendChild(el("p", "defense-fail",
-                    data.error || "Network inspection failed."));
-                if (data.error_category) {
-                    networkBox.appendChild(el("p", "defense-kv",
-                        "Error category: " + data.error_category));
-                }
-                return;
-            }
-
-            networkBox.appendChild(el("p", "defense-kv",
-                "Read-only snapshot. No system state was changed."));
-            networkBox.appendChild(makeTable(
-                "Active connections (" + data.count + " shown of " +
-                data.limit + " requested)",
-                ["Protocol", "Local", "Remote", "State", "PID"],
-                (data.connections || []).map(function (row) {
-                    return [row.protocol, row.local, row.remote,
-                        row.state, row.pid];
-                })
-            ));
-            if (data.truncated) {
-                networkBox.appendChild(el("p", "defense-warning",
-                    "The snapshot was truncated at the requested limit."));
-            }
-            networkBox.appendChild(el("p", "hint",
-                "Process names are not resolved by this read-only view; " +
-                "only the PID is shown."));
-        }).catch(function (error) {
-            clear(networkBox);
-            networkStatus.textContent = "";
-            showError(networkBox, error);
-        });
-    }
-
-    // --------------------------------------------- firewall status section
-
-    function renderFirewallStatus(data) {
-        clear(firewallBox);
-        firewallMessage.textContent = "";
-
-        if (!data.available) {
-            firewallBox.appendChild(el("p", "defense-fail",
-                data.error || "Firewall status check failed."));
-            if (data.error_category) {
-                firewallBox.appendChild(el("p", "defense-kv",
-                    "Error category: " + data.error_category));
-            }
-            return;
-        }
-
-        firewallBox.appendChild(el("p", "defense-kv",
-            "Read-only status. No firewall rule or profile was changed."));
-
-        var profiles = data.profiles || [];
-        if (profiles.length) {
-            firewallBox.appendChild(makeTable(
-                "Firewall profiles",
-                ["Profile", "State"],
-                profiles.map(function (row) {
-                    return [row.profile, row.enabled ? "ON" : "OFF"];
-                })
-            ));
-        } else {
-            firewallBox.appendChild(el("p", "defense-warning",
-                "No profile state could be identified. This is not a claim " +
-                "that the firewall is off."));
-        }
-
-        if (!data.parsed) {
-            firewallBox.appendChild(el("p", "defense-warning",
-                "The localised output could not be parsed. Raw text is " +
-                "shown below instead of guessing."));
-            if (data.raw) {
-                firewallBox.appendChild(el("pre", "defense-json", data.raw));
-            }
-        }
-        if (data.note) {
-            firewallBox.appendChild(el("p", "hint", data.note));
-        }
-        firewallBox.appendChild(el("p", "hint",
-            "Displaying status does not modify Windows Firewall. Any change " +
-            "requires a separately previewed and approved action."));
-    }
-
-    function loadFirewallStatus() {
-        clear(firewallBox);
-        firewallMessage.textContent =
-            "Running the fixed read-only firewall status command...";
-        firewallBox.appendChild(el("p", "hint", "Loading snapshot..."));
-
-        api("/api/defense/inspect", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                action_type: "get_firewall_status",
-                params: { include_raw: true }
-            })
-        }).then(function (data) {
-            renderFirewallStatus(data);
-        }).catch(function (error) {
-            clear(firewallBox);
-            firewallMessage.textContent = "";
-            showError(firewallBox, error);
-        });
-    }
-
-    var networkButton = document.getElementById("network-refresh");
-    if (networkButton) {
-        networkButton.addEventListener("click", loadNetworkActivity);
-    }
-
-    var firewallButton = document.getElementById("firewall-refresh");
-    if (firewallButton) {
-        firewallButton.addEventListener("click", loadFirewallStatus);
-    }
-
-    // ----------------------------------------------------------- preview
-
-    function readPort(id) {
-        var value = document.getElementById(id).value.trim();
-        return value === "" ? null : value;
-    }
-
-    function buildParams() {
-        var params = {
-            remote_address: document.getElementById("defense-address").value.trim(),
-            protocol: document.getElementById("defense-protocol").value,
-            direction: document.getElementById("defense-direction").value,
-            profile: document.getElementById("defense-profile").value
-        };
-
-        var localPort = readPort("defense-port");
-        if (localPort !== null) {
-            params.local_port = localPort;
-        }
-
-        var remotePort = readPort("defense-remote-port");
-        if (remotePort !== null) {
-            params.remote_port = remotePort;
-        }
-
-        var lifetime = document.getElementById("defense-lifetime").value.trim();
-        if (lifetime !== "") {
-            if (!/^\d+$/.test(lifetime)) {
-                throw new Error("Lifetime must be a whole number of minutes.");
-            }
-            params.lifetime_minutes = Number(lifetime);
-        }
-
-        return params;
-    }
-
-    function renderPreview(data) {
-        clear(previewBox);
-        clear(resultBox);
-        approvalToken = null;
-
-        var action = data.action || {};
-        var preview = data.preview || {};
-        var box = el("div", "defense-box");
-
-        box.appendChild(el("h3", null, preview.title || action.action_type));
-
-        var badges = el("p");
-        badges.appendChild(badge(
-            "Risk: " + (preview.risk || "unknown"),
-            "badge-risk"
-        ));
-        badges.appendChild(document.createTextNode(" "));
-        badges.appendChild(badge(
-            preview.requires_admin
-                ? "Administrator required"
-                : "No administrator rights",
-            preview.requires_admin ? "badge-admin" : "badge-safe"
-        ));
-        badges.appendChild(document.createTextNode(" "));
-        badges.appendChild(badge(
-            preview.rollback_supported
-                ? "Rollback supported"
-                : "No rollback",
-            preview.rollback_supported ? "badge-safe" : "badge-risk"
-        ));
-        box.appendChild(badges);
-
-        box.appendChild(el("p", "defense-kv",
-            "Target: " + (preview.target || "—")));
-        box.appendChild(el("p", "defense-kv",
-            preview.expected_effect || ""));
-
-        if (preview.idempotent) {
-            box.appendChild(el("p", "defense-kv",
-                "A CyberGuard rule for this exact scope already exists; " +
-                "execution will reuse it."));
-        }
-
-        (preview.warnings || []).forEach(function (warning) {
-            box.appendChild(el("p", "defense-warning", warning));
-        });
-
-        box.appendChild(el("p", "defense-warning",
-            "lifetime_minutes is recorded for audit/rollback only. The rule " +
-            "does NOT expire or get removed automatically."));
-
-        box.appendChild(el("p", "defense-kv", "Exact canonical parameters:"));
-        box.appendChild(el("pre", "defense-json",
-            JSON.stringify(preview.params || {}, null, 2)));
-
-        box.appendChild(el("p", "hint",
-            "Prepared action expires at " + (preview.expires_at || "—") +
-            ". Approval is a separate, explicit step."));
-
-        var approveButton = el("button", null, "Approve This Exact Action");
-        approveButton.type = "button";
-        approveButton.addEventListener("click", function () {
-            approveButton.disabled = true;
-            approveAction(action);
-        });
-        box.appendChild(approveButton);
-
-        previewBox.appendChild(box);
-    }
-
-    function approveAction(action) {
-        api("/api/defense/actions/" + encodeURIComponent(action.action_id) +
-            "/approve", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ confirm: action.action_type })
-        }).then(function (data) {
-            currentAction = data.action || action;
-            approvalToken = data.approval_token;
-            renderApproval(data);
-        }).catch(function (error) {
-            showError(resultBox, error);
-        });
-    }
-
-    function renderApproval(data) {
-        clear(resultBox);
-
-        var approval = data.approval || {};
-        var box = el("div", "defense-box");
-
-        box.appendChild(el("h3", null, "Approved"));
-        box.appendChild(el("p", "defense-kv",
-            "This approval is single-use and expires at " +
-            (approval.expires_at || "—") + "."));
-        box.appendChild(el("p", "defense-warning",
-            "Execution is still a separate step. Only the backend result " +
-            "below is treated as success."));
-
-        var executeButton = el("button", null, "Execute Approved Action");
-        executeButton.type = "button";
-        executeButton.addEventListener("click", function () {
-            executeButton.disabled = true;
-            executeAction();
-        });
-
-        var cancelButton = el("button", null, "Cancel This Action");
-        cancelButton.type = "button";
-        cancelButton.addEventListener("click", function () {
-            cancelButton.disabled = true;
-            cancelAction();
-        });
-
-        box.appendChild(executeButton);
-        box.appendChild(document.createTextNode(" "));
-        box.appendChild(cancelButton);
-
-        resultBox.appendChild(box);
-    }
-
-    function executeAction() {
-        if (!currentAction || !approvalToken) {
-            showError(resultBox, new Error(
-                "No approved action is available. Preview and approve again."
-            ));
-            return;
-        }
-
-        var actionId = currentAction.action_id;
-        api("/api/defense/actions/" + encodeURIComponent(actionId) +
-            "/execute", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ approval_token: approvalToken })
-        }).then(function (result) {
-            approvalToken = null;
-            renderExecution(result);
-            loadAudit();
-            loadStatus();
-        }).catch(function (error) {
-            approvalToken = null;
-            showError(resultBox, error);
-            loadAudit();
-        });
-    }
-
-    function renderExecution(result) {
-        clear(resultBox);
-
-        var status = result.status || "unknown";
-        var verified = result.verified;
-        var verifiedText = (verified === null || verified === undefined)
-            ? "not reported"
-            : (verified ? "yes" : "no");
-
-        var headline;
-        var className;
-        var explanation;
-
-        if (status === "success" && verified === true) {
-            headline = "Verified success";
-            className = "defense-ok";
-            explanation = "The backend verified the exact firewall state. " +
-                "Review the audit history below.";
-        } else if (status === "success" || status === "unverified") {
-            headline = "Unverified result";
-            className = "defense-warning";
-            explanation = "The backend returned a success-like status but " +
-                "did NOT verify the resulting firewall state. Do not treat " +
-                "this as a confirmed change.";
-        } else if (status === "execution_unknown") {
-            headline = "Execution outcome unknown";
-            className = "defense-warning";
-            explanation = "The helper did not return a verified result. It " +
-                "may still be running and may have changed the firewall. " +
-                "This action will not be retried automatically; reconcile " +
-                "the firewall state and review the audit log.";
-        } else if (status === "cancelled") {
-            headline = "Cancelled";
-            className = "defense-warning";
-            explanation = "The action was cancelled; nothing is claimed to " +
-                "have changed.";
-        } else {
-            headline = "Failure";
-            className = "defense-fail";
-            explanation = "The backend did not confirm success. Nothing is " +
-                "claimed to have changed.";
-        }
-
-        var box = el("div", "defense-box");
-        box.appendChild(el("h3", null, "Execution Result"));
-        box.appendChild(el("p", className, headline +
-            " · Backend status: " + status));
-        box.appendChild(el("p", "defense-kv",
-            "State changed: " + (result.changed ? "yes" : "no") +
-            " · Verified: " + verifiedText +
-            " · Elevation: " + (result.elevation || "not required")));
-
-        if (result.error) {
-            box.appendChild(el("p", "defense-fail", result.error));
-        }
-        if (result.error_category) {
-            box.appendChild(el("p", "defense-kv",
-                "Error category: " + result.error_category));
-        }
-        if (result.detail && result.detail.reason) {
-            box.appendChild(el("p", "defense-kv",
-                "Unresolved reason: " + result.detail.reason));
-        }
-
-        box.appendChild(el("p", "defense-kv", explanation));
-
-        resultBox.appendChild(box);
-    }
-
-    function cancelAction() {
-        if (!currentAction) {
-            return;
-        }
-
-        api("/api/defense/actions/" +
-            encodeURIComponent(currentAction.action_id) + "/cancel", {
-            method: "POST"
-        }).then(function () {
-            approvalToken = null;
-            clear(resultBox);
-            var box = el("div", "defense-box");
-            box.appendChild(el("h3", null, "Cancelled"));
-            box.appendChild(el("p", "defense-kv",
-                "This action was cancelled and its approval was revoked. " +
-                "It can never execute."));
-            resultBox.appendChild(box);
-            loadAudit();
-        }).catch(function (error) {
-            showError(resultBox, error);
-        });
-    }
-
-    form.addEventListener("submit", function (event) {
-        event.preventDefault();
-
-        var params;
-        try {
-            params = buildParams();
-        } catch (error) {
-            showError(previewBox, error);
-            return;
-        }
-
-        clear(previewBox);
-        clear(resultBox);
-        currentAction = null;
-        approvalToken = null;
-
-        previewButton.disabled = true;
-        previewBox.appendChild(el("p", "hint", "Preparing a preview..."));
-
-        api("/api/defense/actions/preview", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                action_type: "create_firewall_block_rule",
-                params: params
-            })
-        }).then(function (data) {
-            currentAction = data.action || null;
-            renderPreview(data);
-        }).catch(function (error) {
-            showError(previewBox, error);
-        }).finally(function () {
-            previewButton.disabled = false;
-        });
-    });
-
-    // ------------------------------------------------------------- audit
-
-    function loadAudit() {
-        if (auditStatus) {
-            auditStatus.textContent = "Loading action history...";
-        }
-
-        return api("/api/defense/audit?limit=25").then(function (data) {
-            clear(auditBox);
-            if (auditStatus) {
-                auditStatus.textContent = "";
-            }
-
-            var events = data.events || [];
-            if (!events.length) {
-                auditBox.appendChild(el("p", "hint", "No audit events yet."));
-                return;
-            }
-
-            auditBox.appendChild(makeTable(
-                "Newest first",
-                ["Timestamp", "Event", "Action", "Target", "Outcome",
-                 "Approval", "Elevation", "Error"],
-                events.map(function (event) {
-                    return [
-                        event.timestamp,
-                        event.event_type,
-                        event.action_type || "—",
-                        event.target || "—",
-                        event.outcome,
-                        event.approval || "—",
-                        event.elevation || "—",
-                        event.error_category || "—"
-                    ];
-                })
-            ));
-            auditBox.appendChild(el("p", "hint",
-                "Total recorded events: " + data.count +
-                (data.truncated
-                    ? " · The read window is limited; older events exist."
-                    : "")));
-            auditBox.appendChild(el("p", "hint",
-                "An outcome of success means the backend reported success. " +
-                "Check the execution result panel for whether the exact " +
-                "firewall state was verified."));
-        }).catch(function (error) {
-            if (auditStatus) {
-                auditStatus.textContent = "";
-            }
-            showError(auditBox, error);
-        });
-    }
-
-    document.getElementById("defense-audit-refresh").addEventListener(
-        "click", loadAudit
-    );
-
-    loadStatus();
-    loadAudit();
-})();
-</script>
-
-</body>
-</html>
+<!-- ======================================== AI Security Assistant = -->
+<div class="page" id="page-assistant">
+
+    <h2 class="page-title" id="page-title-assistant" tabindex="-1">
+        AI Security Assistant
+    </h2>
+
+    {% if result %}
+
+    <div class="section" id="assistant-chat" data-log="{{ log or '' }}">
+
+        <h2>💬 Assistant Chat — Ask About This Analysis</h2>
+
+        <p class="hint">
+            Ask about this analysis. Answers are grounded in the analysis
+            above and the retrieved
+            knowledge passages, and generated locally. The assistant is
+            advisory only: it cannot approve or execute defensive actions.
+            Memory is off by default; nothing is stored on the server.
+        </p>
+
+        <form id="chat-form" autocomplete="off">
+
+            <input id="chat-question" type="text" maxlength="2000"
+                placeholder="e.g. What should I check first?"
+                aria-label="Question about this analysis">
+
+            <button type="submit" id="chat-send">Ask</button>
+
+        </form>
+
+        <div id="chat-controls">
+
+            <label>
+                <input type="checkbox" id="chat-memory">
+                Include earlier questions as context
+            </label>
+
+            <button type="button" id="chat-clear">Clear conversation</button>
+
+        </div>
+
+        <p class="hint">
+            Memory is optional and lives in this page only. When it is
+            ticked, the last few questions and answers are sent with the
+            next question. Clearing the conversation or reloading the page
+            forgets them; nothing is written to disk.
+        </p>
+
+        <p id="chat-status" class="hint" role="status" aria-live="polite"></p>
+
+        <div id="chat-transcript"></div>
+
+        <noscript>
+            <p class="hint">
+                The chat panel needs JavaScript. You can call
+                <code>POST /api/assistant</code> directly instead.
+            </p>
+        </noscript>
+
+    </div>
+
+    {% else %}
+
+    <div class="empty-state">
+        <div class="big">No analysis to ground the assistant on yet.</div>
+        Answers are produced only after a log analysis. Open
+        <strong>Log Analysis</strong> and analyse a log first — the assistant
+        stays advisory-only in every mode: it never approves or executes
+        anything.
+    </div>
+
+    {% endif %}
+
+</div>
+
+<!-- ================================================ AI Companion = -->
+<div class="page" id="page-companion">
+
+    <h2 class="page-title" id="page-title-companion" tabindex="-1">
+        AI Companion
+    </h2>
+
+    <div class="section" id="companion-chat">
+
+        <h2>🤖 Chat with CyberGuard</h2>
+
+        <p class="hint">
+            A local, advisory-only assistant: everyday conversation, general
+            security questions and incident coaching. No log required. It
+            cannot approve, execute or claim to have performed any defensive
+            action. The conversation lives only in this page and in server
+            memory for this session: starting a new chat or reloading the
+            page forgets it.
+        </p>
+
+        <div class="cc-toolbar" role="group" aria-label="Conversation mode">
+
+            <button type="button" id="cc-mode-companion" class="cc-mode cc-active"
+                data-mode="companion" aria-pressed="true">Companion</button>
+
+            <button type="button" id="cc-mode-security" class="cc-mode"
+                data-mode="security" aria-pressed="false">Security</button>
+
+            <p id="cc-mode-label"></p>
+
+        </div>
+
+        <div id="cc-messages" aria-live="polite"></div>
+
+        <form id="cc-form" autocomplete="off">
+
+            <textarea id="cc-input" rows="2" maxlength="2000"
+                placeholder="Type a message (Enter sends it, Shift+Enter adds a newline)"
+                aria-label="Message to the assistant"></textarea>
+
+            <div class="cc-actions">
+                <button type="submit" id="cc-send">Send</button>
+                <button type="button" id="cc-new-chat">New chat</button>
+            </div>
+
+        </form>
+
+        <p id="cc-status" class="hint" role="status" aria-live="polite"></p>
+
+        <noscript>
+            <p class="hint">
+                The chat panel needs JavaScript. You can call
+                <code>POST /api/chat</code> directly instead.
+            </p>
+        </noscript>
+
+    </div>
+
+</div>
+
+<!-- ==================================================== Settings = -->
+<div class="page" id="page-settings">
+
+    <h2 class="page-title" id="page-title-settings" tabindex="-1">
+        Settings
+    </h2>
+
+    <p class="page-desc">
+        This page reports the real, currently active configuration only.
+        There are no toggles here that would pretend to change something —
+        every value below is enforced by the backend or by the frontend
+        design.
+    </p>
+
+    <div class="settings-grid">
+
+        <div class="card">
+            <div class="card-title">SERVER &amp; BINDING</div>
+            <div class="setting-row">
+                <span class="setting-key">Serving address</span>
+                <span class="setting-val" id="set-binding">
+                    {{ request.host }} (loopback only)
+                </span>
+            </div>
+            <div class="setting-row">
+                <span class="setting-key">Interface</span>
+                <span class="setting-val" id="set-mode">
+                    Browser (desktop shell arrives in Stage 3)
+                </span>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">PRIVACY</div>
+            <div class="setting-row">
+                <span class="setting-key">Persistence</span>
+                <span class="setting-val" id="set-persistence">
+                    No conversations, analyses or files are stored; a page
+                    reload clears the session
+                </span>
+            </div>
+            <div class="setting-row">
+                <span class="setting-key">Telemetry</span>
+                <span class="setting-val" id="set-telemetry">
+                    None. No external calls
+                </span>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">AI &amp; ANALYSIS</div>
+            <div class="setting-row">
+                <span class="setting-key">LLM provider</span>
+                <span class="setting-val" id="set-llm">
+                    Chosen per request; the default is the deterministic
+                    provider and the real provider is shown beside every reply
+                </span>
+            </div>
+            <div class="setting-row">
+                <span class="setting-key">Batch cap</span>
+                <span class="setting-val" id="set-batch">
+                    First {{ batch_limit }} non-blank lines per file
+                    (server-enforced; truncation is always reported)
+                </span>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">DEFENSE MODEL</div>
+            <div class="setting-row">
+                <span class="setting-key">Approval flow</span>
+                <span class="setting-val" id="set-approval">
+                    Preview and a separate explicit approval are required
+                    before every state-changing action
+                </span>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+
+<!-- ======================================================= About = -->
+<div class="page" id="page-about">
+
+    <h2 class="page-title" id="page-title-about" tabindex="-1">
+        About CyberGuard
+    </h2>
+
+    <div class="section">
+
+        <h2>About CyberGuard AI</h2>
+
+        <p>
+            CyberGuard AI is a local, privacy-first security analysis
+            dashboard: rule-based classification, a machine-learning
+            triage model, batch log analysis, a local knowledge base
+            (RAG), advisory-only conversational AI and a strictly gated
+            Windows defense workflow — all running on this machine.
+        </p>
+
+        <div class="card mt-3">
+            <div class="card-title">SECURITY MODEL</div>
+            <ul class="hint hint-list">
+                <li>
+                    Binds to the loopback interface only; the UI is reachable
+                    from this machine.
+                </li>
+                <li>
+                    The AI chat is advisory-only: it never approves, executes
+                    or claims privileged actions, and it never touches the
+                    defense approval token.
+                </li>
+                <li>
+                    State-changing defense actions always follow
+                    preview → explicit approval → execute, with CSRF, Host
+                    and Origin checks and a local, read-only audit trail.
+                </li>
+                <li>
+                    Nothing is persisted: no conversations, no uploaded logs,
+                    no cookies, no telemetry, no external requests.
+                </li>
+                <li>
+                    All model output is rendered with <code>textContent</code>
+                    only — never parsed as HTML.
+                </li>
+            </ul>
+        </div>
+
+        <div class="card mt-3">
+            <div class="card-title">ROADMAP</div>
+            <ul class="hint hint-list">
+                <li>
+                    Stage 2 (shipped in this interface): SOC Dashboard 2.0
+                    shell — CSS and JavaScript extracted to
+                    <code>static/</code>, navigation inside one application
+                    shell.
+                </li>
+                <li>
+                    Stage 3 (planned, requires approval): pywebview desktop
+                    shell around this same backend.
+                </li>
+                <li>
+                    Stage 4 (planned): Windows packaging and installation.
+                </li>
+            </ul>
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

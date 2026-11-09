@@ -6,11 +6,19 @@ real retrieval path and skips when it is not usable on this machine.
 """
 
 import io
+from pathlib import Path
 
 import pytest
 
 import app as app_module
 from app import app
+
+
+STATIC_JS_DIR = Path(app_module.__file__).resolve().parent / "static" / "js"
+
+
+def _static_js(name):
+    return (STATIC_JS_DIR / name).read_text(encoding="utf-8")
 
 
 @pytest.fixture
@@ -354,14 +362,15 @@ def test_dashboard_renders_chat_panel(client, monkeypatch):
     )
 
     html = client.post("/", data={"log": LOG}).get_data(as_text=True)
+    script = _static_js("analysis-assistant.js")
 
     assert 'id="assistant-chat"' in html
     assert 'id="chat-form"' in html
     assert 'id="chat-question"' in html
     assert "Ask About This Analysis" in html
-    assert 'fetch("/api/assistant"' in html
+    assert 'fetch("/api/assistant"' in script
     # Answers are inserted with textContent, never innerHTML.
-    assert "bubble.textContent = text" in html
+    assert "bubble.textContent = text" in script
 
 
 def test_dashboard_hides_chat_panel_without_log(client):
@@ -583,12 +592,15 @@ def test_api_batch_runs_the_real_analyzer(client):
 def test_dashboard_renders_batch_panel(client):
     html = client.get("/").get_data(as_text=True)
 
+    html = client.get("/").get_data(as_text=True)
+    script = _static_js("batch.js")
+
     assert 'id="batch-panel"' in html
     assert 'id="batch-form"' in html
     assert 'id="batch-file"' in html
-    assert 'fetch("/api/batch"' in html
+    assert 'fetch("/api/batch"' in script
     assert "Batch Log File Analysis" in html
-    assert "CYBERGUARD_BATCH_MAX_LINES" in html
+    assert "CYBERGUARD_BATCH_MAX_LINES" in script
 
 
 def test_dashboard_shows_the_batch_line_limit(client, monkeypatch):
@@ -693,7 +705,8 @@ def test_dashboard_chat_only_sends_history_when_ticked(client, monkeypatch):
     _stub_context(monkeypatch)
 
     html = client.post("/", data={"log": LOG}).get_data(as_text=True)
+    script = _static_js("analysis-assistant.js")
 
-    assert "memory.checked" in html
-    assert "payload.history = history" in html
-    assert "history_used" in html
+    assert "memory.checked" in script
+    assert "payload.history = history" in script
+    assert "history_used" in script
